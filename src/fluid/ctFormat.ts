@@ -72,10 +72,12 @@ export function lzDecompress(d: Uint8Array): { data: Uint8Array; windowSize: num
       for (let i = 0; i < n; i++) { W[wpos + i] = d[q + i]; out.push(d[q + i]); }
       wpos += n; p = q + n;
     } else {
+      if (p + 1 >= d.length) break; // trailing padding
       const w = (d[p] << 8) | d[p + 1];
       let L = ((w >> bits) + 1) & 0xff;
       const off = w & (D - 1);
       if (L === 1) {
+        if (p + 2 >= d.length) break;
         const cnt = off, ch = d[p + 2];
         if (cnt <= maxFill && wpos + cnt < D) { W.fill(ch, wpos, wpos + cnt); wpos += cnt; }
         for (let i = 0; i < cnt; i++) out.push(ch);

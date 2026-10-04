@@ -34,3 +34,23 @@ describe("FluidSIM .ct reader", () => {
     expect(f.objects.some((o) => o.cls === "EConnection")).toBe(true);
   });
 });
+
+import { FLUID_CATALOG } from "../src/fluid/catalog";
+import { lzDecompress } from "../src/fluid/ctFormat";
+
+describe("FluidSIM catalog", () => {
+  it("covers pneumatic and hydraulic parts with ports", () => {
+    const v = Object.values(FLUID_CATALOG);
+    expect(v.filter((p) => p.domain.startsWith("pneu")).length).toBeGreaterThan(80);
+    expect(v.filter((p) => p.domain.startsWith("hyd")).length).toBeGreaterThan(60);
+    const cyl = v.find((p) => p.cls === "CylDGPPAB")!;
+    expect(cyl.model).toBe("Pneu.FS4.CylinderDA");
+    expect(cyl.ports.map((p) => p.kind)).toEqual(["PConnection", "PConnection"]);
+    expect(v.find((p) => p.cls === "tank1")).toBeTruthy();
+  });
+  it("LZ decoder stops cleanly on trailing padding", () => {
+    const hdr = [1, 0, 14, 0x800, 16, 11, 0].flatMap((w) => [w & 255, w >> 8]);
+    const d = Uint8Array.from([...hdr, 0x82, 65, 66, 0x00]);
+    expect(Array.from(lzDecompress(d).data)).toEqual([65, 66]);
+  });
+});
