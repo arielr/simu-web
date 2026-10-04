@@ -1,0 +1,83 @@
+/* Layout: drafting-table app — toolbar on top, part drawer + inspector flank a ruled drawing sheet */
+:root{
+  --bg:#e9ebe6; --panel:#f6f7f3; --sheet:#fbfbf7; --grid:#d3d7cc; --ink:#22261f; --muted:#6b7166;
+  --line:#c9cdc2; --accent:#d98a1c; --accent-ink:#ffffff; --live:#c8352b; --l2:#8a5a2c; --l3:#6c7378; --neu:#2559b8; --pe:#3f9a3a; --sel:#d98a1c;
+  --ok:#2f8a4a; --warn-bg:#fbe3df;
+  --f-ui:"IBM Plex Sans","IBM Plex Sans Hebrew","Segoe UI",Arial,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141714; --panel:#1b1f1b; --sheet:#1f2420; --grid:#2f3630; --ink:#dfe4da; --muted:#929a8d;
+  --line:#343b34; --accent:#f0a33a; --accent-ink:#1a1307; --live:#ff6a5c; --l2:#d39a62; --l3:#b5bcc2; --neu:#6ea0ff; --pe:#6fcf5f; --sel:#f0a33a;
+  --ok:#5cc47b; --warn-bg:#3b1e1b; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#141714; --panel:#1b1f1b; --sheet:#1f2420; --grid:#2f3630; --ink:#dfe4da; --muted:#929a8d;
+  --line:#343b34; --accent:#f0a33a; --accent-ink:#1a1307; --live:#ff6a5c; --l2:#d39a62; --l3:#b5bcc2; --neu:#6ea0ff; --pe:#6fcf5f; --sel:#f0a33a;
+  --ok:#5cc47b; --warn-bg:#3b1e1b; color-scheme:dark }
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:14px}
+#root{height:100%}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr auto;padding-inline:16px;padding-block:10px;gap:10px;box-sizing:border-box}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.brand{font-family:var(--f-mono);font-weight:600;letter-spacing:.04em;font-size:15px;margin-inline-end:8px}
+.brand small{color:var(--muted);font-weight:400;margin-inline-start:6px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+.seg button{border:0;border-radius:0}
+.seg button+button{border-inline-start:1px solid var(--line)}
+button{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:6px 11px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button.on{background:var(--ink);color:var(--sheet)}
+button.go{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.spacer{flex:1}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--sheet);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+input.proj{min-width:0;width:220px}
+.main{display:grid;grid-template-columns:200px minmax(0,1fr) 230px;gap:10px;min-height:0}
+.drawer,.insp{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;overflow:auto;min-height:0}
+.grp{font-size:11px;letter-spacing:.08em;color:var(--muted);margin:10px 2px 4px}
+.grp:first-child{margin-top:0}
+.part{display:flex;align-items:center;gap:8px;width:100%;text-align:start;padding:4px 6px;margin-bottom:2px;background:transparent;border-color:transparent}
+.part:hover{background:var(--sheet);border-color:var(--line)}
+.part.on{background:var(--sheet);border-color:var(--accent);color:var(--ink)}
+.part svg{flex:none;color:var(--ink)}
+.stage{position:relative;min-width:0;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:auto;background:var(--sheet)}
+.stage svg.sheet{display:block;touch-action:none;user-select:none;color:var(--ink)}
+.status{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--muted);align-items:center}
+.status b{color:var(--ink);font-weight:500}
+.chip{font-family:var(--f-mono);font-size:11px;padding:2px 7px;border-radius:99px;border:1px solid var(--line)}
+.chip.sim{background:var(--ok);color:#fff;border-color:var(--ok)}
+.warn{position:sticky;inset-inline-start:12px;top:12px;margin:12px;display:inline-block;background:var(--warn-bg);color:var(--live);border:1px solid var(--live);padding:6px 10px;border-radius:8px;font-weight:600;font-size:13px;z-index:1}
+.warnwrap{position:absolute;inset-inline:0;top:0;height:0}
+.insp h3{font-size:13px;margin:0 0 8px;font-weight:600}
+.preview{background:var(--sheet);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px;display:grid;place-items:center;color:var(--ink)}
+.preview svg{width:100%;max-width:180px;height:120px;display:block}
+.about-name{font-weight:600;font-size:14px;margin-bottom:4px}
+.about{font-size:12.5px;line-height:1.55;margin:0 0 8px;color:var(--ink)}
+.about.sim{color:var(--muted)}
+.about.sim b{color:var(--ink);font-weight:600}
+.field{display:grid;gap:4px;margin-bottom:10px}
+.field label{font-size:12px;color:var(--muted)}
+.field input,.field select{width:100%;box-sizing:border-box}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.hint{font-size:12px;color:var(--muted);line-height:1.6}
+.kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px}
+.legend{display:grid;gap:4px;font-size:12px;margin-top:12px}
+.legend span{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-inline-end:6px}
+.modal{position:fixed;inset:0;background:color-mix(in srgb,var(--bg) 70%,transparent);display:grid;place-items:center;padding:16px;z-index:5}
+.dlg{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;width:min(600px,100%);display:grid;gap:10px;box-sizing:border-box;max-height:100%;overflow:auto}
+.dlg h2{margin:0;font-size:16px}
+.dlg textarea{width:100%;height:200px;box-sizing:border-box;font-family:var(--f-mono);font-size:12px;direction:ltr}
+.note{font-size:12px;line-height:1.55;padding:8px 10px;border-radius:8px;background:var(--sheet);border:1px solid var(--line)}
+.mono{font-family:var(--f-mono)}
+text{font-family:var(--f-mono)}
+@media (max-width:900px){
+  .main{grid-template-columns:1fr;grid-template-rows:auto minmax(320px,1fr) auto}
+  .drawer{display:flex;flex-wrap:wrap;gap:4px;max-height:150px}
+  .grp{width:100%;margin:4px 2px 0}
+  .part{width:auto}
+  input.proj{width:140px}
+}
+@keyframes blink{50%{opacity:.2}}
+.blink{animation:blink 1s steps(1) infinite}
+@media (prefers-reduced-motion: reduce){ .lampglow{filter:none!important} .blink{animation:none} }
