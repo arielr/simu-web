@@ -26,4 +26,11 @@ describe("FluidSIM .ct reader", () => {
     expect(f.objects.some((o) => o.cls === "WV_5")).toBe(true);
     expect(f.objects.every((o) => Number.isInteger(o.id))).toBe(true);
   });
+  it("reads an electro-hydraulic circuit from FluidSIM H", () => {
+    const f = readCt(load("hyd-electro-cylinder.ct"));
+    const cls = new Set(f.objects.map((o) => o.cls));
+    for (const c of ["Ag1", "tank1", "CylH3", "HWV_4", "magnet", "lampe"]) expect(cls.has(c)).toBe(true);
+    expect(f.objects.some((o) => o.cls === "HConnection")).toBe(true);
+    expect(f.objects.some((o) => o.cls === "EConnection")).toBe(true);
+  });
 });
