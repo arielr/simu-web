@@ -114,3 +114,6 @@ svg.fl.big g,svg.fl.big [stroke-width]{stroke-width:1.5px}
 a.card{color:var(--ink);text-decoration:none}
 a.card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .bar select{max-width:170px}
+:root{--tube-off:#9db8d6}
+[data-app="hyd"]{--tube-off:#d9a798}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) [data-app="pneu"]{--tube-off:#3d5674} :root:not([data-theme="light"]) [data-app="hyd"]{--tube-off:#6a3d33}}

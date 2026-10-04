@@ -6,8 +6,8 @@ Three circuit programs in the browser, sharing one code base:
 |---|---|---|
 | `/` | launch screen | |
 | `/electrical/` | electrical control circuits: edit + simulate | CADe SIMU `.cad` |
-| `/pneumatic/` | pneumatic circuits: edit (simulation next) | FluidSIM P `.ct` |
-| `/hydraulic/` | hydraulic circuits: edit (simulation next) | FluidSIM H `.ct` |
+| `/pneumatic/` | pneumatic circuits: edit + simulate | FluidSIM P `.ct` |
+| `/hydraulic/` | hydraulic circuits: edit + simulate | FluidSIM H `.ct` |
 
 For the user they are separate programs (own page, own library, own saved drawing);
 only the language setting is shared.
@@ -74,3 +74,17 @@ A drawing built from scratch in SIMU Web opens and simulates in CADe SIMU.
 Versions up to v6 were a single HTML file using `htm`. `tools/migrate.py` converted it to
 TSX modules mechanically; most modules still start with `// @ts-nocheck` and are typed
 gradually.
+
+## Pneumatic / hydraulic simulation (`src/fluid/sim.ts`)
+
+- **Valves** are read from their own drawing: one box per switching position, the box
+  under the ports is the current one; the flow lines inside each box give the port
+  connections of that position. Works for any FluidSIM valve configuration.
+- **Actuation and springs** come from the valve properties (`ACTUATION_*`, `SPRING_*`,
+  `POS`, `POS_RESET`): pilot ports follow pressure, solenoids toggle on click, push buttons
+  and rollers act while held (Shift+click latches), valves without springs keep their position.
+- **Network**: tubes and open valve paths form nets; a net is under pressure when it reaches
+  a supply (air source, compressor, pump) and is not vented (exhaust ports 3/5/R, tank).
+- **Cylinders** extend/retract when one chamber is under pressure and the other vented.
+- Not modelled yet: flow rates and pressures in bar, throttles (pass through), check-valve
+  direction, roller valves actuated by the cylinder, electrical parts inside fluid circuits.

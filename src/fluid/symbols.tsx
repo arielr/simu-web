@@ -91,6 +91,11 @@ const motorSym = (h: number, cx: number) => {
 };
 
 const BUILTIN: Record<string, (w: number, h: number) => ReactNode[]> = {
+  // logic elements (two-pressure valve = AND, shuttle valve = OR): body + inputs at the sides, output on the third side
+  PVS3: (w, h) => [<rect key="b" x={w * 0.25} y={h * 0.35} width={w * 0.5} height={h * 0.45} fill="none" />, L(0, 24576, w * 0.25, 24576, "i1"), L(w * 0.75, 24576, w, 24576, "i2"),
+    L(w / 2, 0, w / 2, h * 0.35, "o"), <text key="t" x={w / 2} y={h * 0.6} fontSize={7000} stroke="none" fill="currentColor" textAnchor="middle" dominantBaseline="middle">&amp;</text>],
+  PVS1: (w, h) => [<rect key="b" x={w * 0.25} y={h * 0.1} width={w * 0.5} height={h * 0.45} fill="none" />, L(0, 12288, w * 0.25, 12288, "i1"), L(w * 0.75, 12288, w, 12288, "i2"),
+    L(w / 2, h * 0.55, w / 2, h, "o"), <text key="t" x={w / 2} y={h * 0.33} fontSize={6500} stroke="none" fill="currentColor" textAnchor="middle" dominantBaseline="middle">≥1</text>],
   tank1: (w, h) => [<polyline key="t" points={`${w / 2 - 6500},${h * 0.4} ${w / 2 - 6500},${h - 500} ${w / 2 + 6500},${h - 500} ${w / 2 + 6500},${h * 0.4}`} fill="none" />,
     L(w / 2, 0, w / 2, h - 3500, "p")],
   Ag1: (w, h) => [<circle key="c" cx={w / 2} cy={6000} r={4600} fill="none" />, Tri([w / 2 - 2000, 7800, w / 2 + 2000, 7800, w / 2, 1700], "t"),
@@ -136,7 +141,11 @@ const BUILTIN: Record<string, (w: number, h: number) => ReactNode[]> = {
 
 /** pistons and rods: FluidSIM draws them in code so they can move. ext: 0 = retracted, 1 = extended */
 export function cylinderParts(part: FluidPart, ext = 0): ReactNode[] | null {
-  if (!/^(Cyl(?!DGPP)|Zylinder)/.test(part.cls) || !part.sym.length) return null;
+  if (/^CylDGPP/.test(part.cls)) { // rodless cylinder: a carriage slides along the body
+    const [w] = part.size, cw = Math.min(14000, w * 0.25), x = 1500 + (w - cw - 3000) * ext;
+    return [<rect key="car" x={x} y={-5200} width={cw} height={5200} fill="currentColor" opacity=".85" stroke="none" />];
+  }
+  if (!/^(Cyl|Zylinder)/.test(part.cls) || !part.sym.length) return null;
   const [w] = part.size;
   const hs = part.sym.map((l) => l.split(" ").map(Number)).filter((n) => n[0] === 1 && n[2] === n[4]).map((n) => n[2]);
   const top = Math.min(...hs), bot = Math.max(...hs.filter((y) => y < part.size[1]));

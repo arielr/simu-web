@@ -99,6 +99,8 @@ const BY_DESC: Record<string, N> = {
   "Öler": ["Lubricator", "משמן"],
 };
 const BY_CLASS: Record<string, N> = {
+  PVS3: ["Two-pressure valve (AND)", "שסתום לחץ כפול (AND)"],
+  PVS1: ["Shuttle valve (OR)", "שסתום חילופין (OR)"],
   PPE1: ["Compressed air supply", "מקור אוויר דחוס"],
   PPE2: ["Pressure regulator", "וסת לחץ"],
   PRV: ["Service unit (filter, regulator)", "יחידת טיפול באוויר"],

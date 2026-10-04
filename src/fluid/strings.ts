@@ -9,12 +9,15 @@ export const FS = {
     part: "Part", ports: "Ports", props: "Parameters", cls: "FluidSIM class", config: "Valve configuration",
     tubeSel: "Tube", from: "From", to: "To", bends: "Bends",
     openCt: "Open FluidSIM file (.ct)", saveJson: "Save project (.json)", openJson: "Open project (.json)",
-    ctNote: "Opens circuits saved by FluidSIM 4. Saving back to .ct is the next step; for now save the project as .json.",
+    ctNote: "Opens circuits saved by FluidSIM 4. Saving back to .ct is not ready yet; for now save the project as .json.",
     imported: (n: number, t: number) => `Imported ${n} parts and ${t} tubes.`,
     skipped: "Not shown (text, pictures, diagrams)", wrongProgram: (p: string) => `This file was made in FluidSIM ${p}; it opens here, but belongs to the ${p === "H" ? "hydraulics" : "pneumatics"} program.`,
-    parts: "parts", tubes: "tubes", simSoon: "Simulation: coming next",
+    parts: "parts", tubes: "tubes", 
     exP1: "Cylinder with 5/2 valve", exP2: "Cylinder, two 3/2 valves", exH1: "Electro-hydraulic cylinder",
-    openPort: "free"
+    openPort: "free",
+    edit: "Edit", sim: "▶ Simulate", simTitle: "Simulation",
+    simHint: "Click a valve's actuator side to operate it: push buttons and rollers while held, solenoids switch on/off. Pilot-operated valves follow their pilot pressure. Shift+click latches a push button (to operate two at once). Click a shut-off valve to close it.",
+    legP: "Under pressure", legNoP: "No pressure / exhaust", cylinders: "Cylinders",
   },
   he: {
     tube: "צינור", newName: "מעגל חדש",
@@ -25,12 +28,15 @@ export const FS = {
     part: "רכיב", ports: "יציאות", props: "פרמטרים", cls: "מחלקה ב-FluidSIM", config: "תצורת שסתום",
     tubeSel: "צינור", from: "מ", to: "אל", bends: "כיפופים",
     openCt: "פתח קובץ FluidSIM ‏(.ct)", saveJson: "שמור פרויקט (.json)", openJson: "פתח פרויקט (.json)",
-    ctNote: "פותח מעגלים שנשמרו ב-FluidSIM 4. שמירה חזרה ל-.ct היא השלב הבא; בינתיים אפשר לשמור את הפרויקט כ-.json.",
+    ctNote: "פותח מעגלים שנשמרו ב-FluidSIM 4. שמירה חזרה ל-.ct עוד לא מוכנה; בינתיים אפשר לשמור את הפרויקט כ-.json.",
     imported: (n: number, t: number) => `יובאו ${n} רכיבים ו-${t} צינורות.`,
     skipped: "לא מוצג (טקסט, תמונות, דיאגרמות)", wrongProgram: (p: string) => `הקובץ נוצר ב-FluidSIM ${p}; הוא נפתח כאן, אבל שייך לתוכנת ה${p === "H" ? "הידראוליקה" : "פנאומטיקה"}.`,
-    parts: "רכיבים", tubes: "צינורות", simSoon: "סימולציה: בשלב הבא",
+    parts: "רכיבים", tubes: "צינורות", 
     exP1: "בוכנה עם שסתום 5/2", exP2: "בוכנה ושני שסתומי 3/2", exH1: "בוכנה אלקטרו-הידראולית",
-    openPort: "פנויה"
+    openPort: "פנויה",
+    edit: "עריכה", sim: "▶ סימולציה", simTitle: "סימולציה",
+    simHint: "לחץ על צד המפעיל של שסתום כדי להפעיל אותו: לחצנים וגלגלות כל עוד מחזיקים, סולנואידים נדלקים ונכבים. שסתומים בפיקוד פנאומטי מגיבים ללחץ הפיקוד. Shift+לחיצה נועלת לחצן במצב לחוץ (כדי להפעיל שניים יחד). לחיצה על ברז סגירה סוגרת אותו.",
+    legP: "תחת לחץ", legNoP: "בלי לחץ / פליטה", cylinders: "בוכנות",
   },
 };
 export type FStrings = typeof FS.en;
