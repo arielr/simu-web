@@ -1,7 +1,16 @@
 # SIMU Web
 
-A browser-based editor and simulator for electrical control circuits, compatible with
-**CADe SIMU** `.cad` files (open, edit, simulate, save back).
+Three circuit programs in the browser, sharing one code base:
+
+| Page | Program | Files |
+|---|---|---|
+| `/` | launch screen | |
+| `/electrical/` | electrical control circuits: edit + simulate | CADe SIMU `.cad` |
+| `/pneumatic/` | pneumatic circuits: edit (simulation next) | FluidSIM P `.ct` |
+| `/hydraulic/` | hydraulic circuits: edit (simulation next) | FluidSIM H `.ct` |
+
+For the user they are separate programs (own page, own library, own saved drawing);
+only the language setting is shared.
 
 ## Run
 
@@ -9,9 +18,18 @@ A browser-based editor and simulator for electrical control circuits, compatible
 npm install
 npm run dev        # local dev server
 npm test           # round-trip, terminal-position and simulation tests
-npm run build      # static site in dist/
-SINGLE=1 npx vite build   # one self-contained dist/index.html
+npm run build      # static multi-page site in dist/ (what GitHub Pages serves)
+npm run build:single      # everything in one file: dist-single/single.html (#electrical, #pneumatic, #hydraulic)
 ```
+
+## Publish on GitHub Pages
+
+1. Create a repository on GitHub and push this folder to its `main` branch.
+2. In the repository: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+3. Every push to `main` runs `.github/workflows/pages.yml`: install, tests, build, deploy.
+   The site appears at `https://<user>.github.io/<repo>/`.
+
+A GitHub Pages site is public even when the repository is private.
 
 Outside claude.ai, **File → Save file** writes a `.cad` file directly. Inside a claude.ai
 artifact the host only allows certain extensions, so `.cad` is delivered inside a `.zip`
@@ -21,13 +39,17 @@ artifact the host only allows certain extensions, so `.cad` is delivered inside 
 
 | Path | What it holds |
 |---|---|
+| `src/shared/` | Shared by all programs: page frame, top bar pieces, parts drawer, dialog (`ui.tsx`), hooks for language, undo, autosave, saving files, shortcuts (`hooks.ts`), common strings (`i18n.ts`). |
+| `src/entries/`, `*/index.html` | One entry per page of the multi-page site. `src/main.tsx` + `src/ui/Shell.tsx` serve the single-file build. |
+| `src/ui/Launcher.tsx` | Launch screen. |
+| `src/fluid/` | Pneumatic/hydraulic program: `.ct` reader (`ctFormat.ts`), import into the editor (`ctImport.ts`), part catalog, symbol renderer, editor (`FluidApp.tsx`). |
 | `src/cad/format.ts` | CADe SIMU `.cad` reader/writer. Unknown records are kept and written back byte-for-byte. |
 | `src/cad/catalog.json` | Names of all CADe SIMU part codes (279), read from the program's own command table. |
 | `src/model/parts.ts` | Part definitions: terminals, contact paths, families (1–4 poles), actuators × contact forms. |
 | `src/model/geometry.ts` | Terminal positions, rotation, wire network (union-find). |
 | `src/sim/solve.ts` | Simulator: L1/L2/L3/N potentials, shorts, coils, timers (on/off/both delay), interlock. |
 | `src/i18n/` | English/Hebrew UI strings and part descriptions. |
-| `src/ui/` | `App.tsx` (editor) and `symbols.tsx` (IEC symbols, device panels). |
+| `src/ui/` | `App.tsx` (electrical program) and `symbols.tsx` (IEC symbols, device panels). |
 | `src/platform/save.ts` | How files are saved (browser download vs. claude.ai artifact). |
 | `src/examples/files/` | Sample and test `.cad` files made in CADe SIMU. |
 | `tests/` | Vitest suites. |

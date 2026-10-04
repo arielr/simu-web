@@ -14,7 +14,9 @@ import {
   FComp, FluidDoc, FluidDomain, PortRef, Tube, FLUID_KIND, MM, SNAP, PORT_R,
   partOf, portsOf, portPos, rotSize, rotTransform, routeTube, isFluidPart,
 } from "./model";
-import { detectSaver, Saver } from "../platform/save";
+import { useLang, useHistory, usePersist, useSaver, useFlash, useKeys, useTitle, loadPersisted, nid, safeName } from "../shared/hooks";
+import { COMMON } from "../shared/i18n";
+import { EditorFrame, HomeButton, Brand, Seg, ZoomControl, UndoButton, NameField, ExamplesMenu, BarEnd, PartsDrawer, Dialog, StageMessage, Preview, matches } from "../shared/ui";
 
 const A3W = 420 * MM, A3H = 297 * MM, PX = 1 / 256; // 4 px per mm at 100 %
 
@@ -30,10 +32,7 @@ function extent(comps: FComp[]): [number, number, number, number] | null {
 }
 const GROUPS = ["actuator", "valve", "vgroup", "supply", "sensor", "other"];
 const storeKey = (d: FluidDomain) => "simu-web-fluid-" + d;
-let uid = Date.now();
-const nid = (p: string) => p + (++uid).toString(36);
 const snap = (v: number) => Math.round(v / SNAP) * SNAP;
-const safeName = (s: string) => (s || "circuit").replace(/[\\/:*?"<>|]+/g, " ").trim().slice(0, 80) || "circuit";
 
 function groupOf(p: FluidPart): string {
   if (p.domain.endsWith("-example")) return "other";
@@ -42,10 +41,8 @@ function groupOf(p: FluidPart): string {
 }
 
 function loadDoc(d: FluidDomain, t: typeof FS.en): FluidDoc {
-  try {
-    const s = JSON.parse(localStorage.getItem(storeKey(d)) || "null");
-    if (s && Array.isArray(s.comps)) return s;
-  } catch { /* storage unavailable */ }
+  const s = loadPersisted<FluidDoc>(storeKey(d), (v) => Array.isArray(v.comps));
+  if (s) return s;
   const ex = FLUID_EXAMPLES[d][0];
   try { const r = importCt(ex.bytes(), (t as any)[ex.key]); return { name: r.name, comps: r.comps, tubes: r.tubes }; } catch { return { name: t.newName, comps: [], tubes: [] }; }
 }
@@ -58,8 +55,9 @@ function PartIcon({ part }: { part: FluidPart }) {
   return (<svg className="fl" width="44" height="30" viewBox={`${(w - s) / 2} ${(h - s * 0.76) / 2} ${s} ${s * 0.76}`} aria-hidden="true"><FluidSymbol part={part} /></svg>);
 }
 
-export function FluidApp({ domain, lang, setLang, onHome }: { domain: FluidDomain; lang: "en" | "he"; setLang: (l: "en" | "he") => void; onHome: () => void }) {
-  const t = FS[lang];
+export function FluidApp({ domain, onHome }: { domain: FluidDomain; onHome?: () => void }) {
+  const [lang, setLang] = useLang();
+  const t = FS[lang], c0 = COMMON[lang];
   const init = useMemo(() => loadDoc(domain, t), [domain]);
   const [name, setName] = useState(init.name || "");
   const [comps, setComps] = useState<FComp[]>(init.comps);
@@ -71,17 +69,18 @@ export function FluidApp({ domain, lang, setLang, onHome }: { domain: FluidDomai
   const [placeRot, setPlaceRot] = useState(0);
   const [zoom, setZoom] = useState(0.75);
   const [dlg, setDlg] = useState(false);
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useFlash(9000);
   const [query, setQuery] = useState("");
-  const [saver, setSaver] = useState<Saver | null>(null);
+  const saver = useSaver();
   const stageRef = useRef<HTMLDivElement>(null);
   const [fitReq, setFitReq] = useState(1);
-  const svgRef = useRef<SVGSVGElement>(null), hist = useRef<{ comps: FComp[]; tubes: Tube[] }[]>([]), drag = useRef<Drag>(null);
+  const svgRef = useRef<SVGSVGElement>(null), drag = useRef<Drag>(null);
   const fileRef = useRef<HTMLInputElement>(null), jsonRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { detectSaver().then(setSaver).catch(() => setSaver(null)); }, []);
-  useEffect(() => { try { localStorage.setItem(storeKey(domain), JSON.stringify({ name, comps, tubes })); } catch { /* ignore */ } }, [name, comps, tubes, domain]);
-  useEffect(() => { document.title = `SIMU Web · ${domain === "pneu" ? t.pneu : t.hyd}`; }, [domain, lang]);
+  const title = c0.programs[domain === "pneu" ? "pneumatic" : "hydraulic"];
+  const doc = useMemo(() => ({ name, comps, tubes }), [name, comps, tubes]);
+  usePersist(storeKey(domain), doc);
+  useTitle(`SIMU Web · ${title}`);
 
   const palette = useMemo(() => {
     const kind = FLUID_KIND[domain];
@@ -89,12 +88,15 @@ export function FluidApp({ domain, lang, setLang, onHome }: { domain: FluidDomai
     const items = Object.entries(FLUID_CATALOG)
       .filter(([, p]) => isFluidPart(p, domain) && p.ports.some((x) => x.kind === kind))
       .map(([key, p]) => ({ key, p, label: fluidName(p.cls, p.description, lang), g: groupOf(p) }))
-      .filter((x) => !q || x.label.toLowerCase().includes(q) || x.p.cls.toLowerCase().includes(q));
-    return GROUPS.map((g) => ({ g, items: items.filter((x) => x.g === g).sort((a, b) => a.label.localeCompare(b.label)) })).filter((x) => x.items.length);
+      .filter((x) => matches(q, x.label, x.p.cls));
+    return GROUPS.map((g) => ({
+      id: g, title: t.groups[g],
+      items: items.filter((x) => x.g === g).sort((a, b) => a.label.localeCompare(b.label))
+        .map(({ key, p, label }) => ({ key, label, icon: <PartIcon part={p} />, title: p.cls + (p.config ? " · " + p.config : "") })),
+    }));
   }, [domain, lang, query]);
 
-  const push = () => { hist.current.push({ comps, tubes }); if (hist.current.length > 80) hist.current.shift(); };
-  const undo = () => { const h = hist.current.pop(); if (h) { setComps(h.comps); setTubes(h.tubes); setSel(null); } };
+  const { push, undo } = useHistory(() => ({ comps, tubes }), (h) => { setComps(h.comps); setTubes(h.tubes); setSel(null); });
   const loadDoc2 = (d: FluidDoc) => { push(); setComps(d.comps); setTubes(d.tubes); setName(d.name); setSel(null); setDraft(null); setTool("select"); setFitReq((n) => n + 1); };
   const ext = extent(comps);
   const SHEET_W = Math.max(A3W, ext ? ext[2] + 20 * MM : 0), SHEET_H = Math.max(A3H, ext ? ext[3] + 20 * MM : 0);
@@ -207,16 +209,12 @@ export function FluidApp({ domain, lang, setLang, onHome }: { domain: FluidDomai
     else setTubes((ts) => ts.filter((tb) => tb.id !== sel.id));
     setSel(null);
   };
-  useEffect(() => {
-    const k = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).closest("input,textarea,select")) return;
-      if (e.key === "Escape") { setDraft(null); setTool("select"); setPlaceRot(0); }
-      else if (e.key === "r" || e.key === "R") rotateSel();
-      else if (e.key === "Delete" || e.key === "Backspace") deleteSel();
-      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); }
-    };
-    window.addEventListener("keydown", k);
-    return () => window.removeEventListener("keydown", k);
+  useKeys((e) => {
+    if (dlg) return;
+    if (e.key === "Escape") { setDraft(null); setTool("select"); setPlaceRot(0); }
+    else if (e.key === "r" || e.key === "R" || e.key === "ר") rotateSel();
+    else if (e.key === "Delete" || e.key === "Backspace") deleteSel();
+    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); }
   });
 
   const openCt = async (f: File) => {
@@ -245,41 +243,26 @@ export function FluidApp({ domain, lang, setLang, onHome }: { domain: FluidDomai
   const placing = tool.startsWith("place:") ? FLUID_CATALOG[tool.slice(6)] : undefined;
   const label = (c: FComp) => { const p = partOf(c); return p ? fluidName(p.cls, p.description, lang) : c.key; };
 
-  return (<div className="app" data-app={domain} dir={t.dir} lang={lang}>
-    <div className="bar">
-      <button className="home" onClick={onHome} title={t.home} aria-label={t.home}>⌂</button>
-      <span className="brand" dir="ltr">SIMU Web<small>{domain === "pneu" ? t.pneu : t.hyd}</small></span>
-      <div className="seg" role="group" aria-label="tool">
-        <button className={tool === "select" ? "on" : ""} onClick={() => { setTool("select"); setDraft(null); }}>{t.select}</button>
-        <button className={tool === "tube" ? "on" : ""} onClick={() => { setTool("tube"); setDraft(null); }}>{t.tube}</button>
-      </div>
-      <button onClick={undo} title="Ctrl+Z">{t.undo}</button>
-      <input className="proj" value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} aria-label="name" />
-      <span className="spacer"></span>
-      <div className="seg"><button onClick={() => setZoom((z) => Math.max(0.25, +(z - 0.25).toFixed(2)))} aria-label="zoom out">−</button><button className="mono" title="fit" onClick={() => setFitReq((n) => n + 1)}>{Math.round(zoom * 100)}%</button><button onClick={() => setZoom((z) => Math.min(3, +(z + 0.25).toFixed(2)))} aria-label="zoom in">+</button></div>
-      <button onClick={() => { push(); setComps([]); setTubes([]); setName(t.newName); setSel(null); }}>{t.newDoc}</button>
-      <select aria-label={t.examples} value="" onChange={(e) => { const ex = FLUID_EXAMPLES[domain].find((x) => x.key === e.target.value); if (ex) { const r = importCt(ex.bytes(), (t as any)[ex.key]); loadDoc2(r); } }}>
-        <option value="">{t.examples}…</option>
-        {FLUID_EXAMPLES[domain].map((x) => <option key={x.key} value={x.key}>{(t as any)[x.key]}</option>)}
-      </select>
-      <button className="go" onClick={() => setDlg(true)}>{t.file}</button>
-      <select aria-label={t.lang} value={lang} onChange={(e) => setLang(e.target.value as "en" | "he")}><option value="en">English</option><option value="he">עברית</option></select>
-    </div>
+  const bar = (<>
+    <HomeButton lang={lang} onHome={onHome} />
+    <Brand title={title} />
+    <Seg label="tool" value={tool === "tube" ? "tube" : "select"} options={[["select", c0.select], ["tube", t.tube]]} onChange={(v) => { setTool(v); setDraft(null); }} />
+    <UndoButton lang={lang} onUndo={undo} />
+    <NameField lang={lang} value={name} onChange={setName} />
+    <BarEnd lang={lang} setLang={setLang}
+      zoom={<ZoomControl lang={lang} zoom={zoom} setZoom={setZoom} onReset={() => setFitReq((n) => n + 1)} />}
+      onNew={() => { push(); setComps([]); setTubes([]); setName(t.newName); setSel(null); }}
+      examples={<ExamplesMenu lang={lang} items={FLUID_EXAMPLES[domain].map((x) => [x.key, (t as any)[x.key]])}
+        onPick={(k) => { const ex = FLUID_EXAMPLES[domain].find((x) => x.key === k); if (ex) loadDoc2(importCt(ex.bytes(), (t as any)[ex.key])); }} />}
+      onFile={() => setDlg(true)} />
+  </>);
 
-    <div className="main">
-      <div className="drawer">
-        <input className="search" placeholder={t.search} value={query} onInput={(e) => setQuery((e.target as HTMLInputElement).value)} />
-        {palette.map(({ g, items }) => (<div key={g} style={{ display: "contents" }}>
-          <div className="grp">{t.groups[g]}</div>
-          {items.map(({ key, p, label: lb }) => (
-            <button key={key} className={"part" + (tool === "place:" + key ? " on" : "")} title={p.cls + (p.config ? " · " + p.config : "")}
-              onClick={() => { setDraft(null); setTool("place:" + key); setPlaceRot(0); setSel(null); }}>
-              <PartIcon part={p} /><span>{lb}</span></button>))}
-        </div>))}
-      </div>
-
+  return (<EditorFrame app={domain} lang={lang} bar={bar}
+    drawer={<PartsDrawer lang={lang} groups={palette} active={tool.startsWith("place:") ? tool.slice(6) : null} query={query} setQuery={setQuery}
+      onPick={(k) => { setDraft(null); setTool("place:" + k); setPlaceRot(0); setSel(null); }} />}
+    stage={
       <div className="stage" ref={stageRef}>
-        {msg && <div className="warnwrap"><div className="warn info">{msg}</div></div>}
+        <StageMessage text={msg} />
         <svg className="sheet fluid" ref={svgRef} width={SHEET_W * PX * zoom} height={SHEET_H * PX * zoom} viewBox={`0 0 ${SHEET_W} ${SHEET_H}`}
           onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={() => setCursor(null)} onContextMenu={(e) => { e.preventDefault(); setDraft(null); }}
           style={{ cursor: tool === "select" && !draft ? "default" : "crosshair" }}>
@@ -329,15 +312,15 @@ export function FluidApp({ domain, lang, setLang, onHome }: { domain: FluidDomai
           })()}
         </svg>
       </div>
-
-      <div className="insp">
+    }
+    inspector={<>
         {selComp ? (() => {
           const p = partOf(selComp)!;
           return (<>
-            <div className="preview"><svg className="fl big" viewBox={`${-4000} ${-4000} ${p.size[0] + 8000} ${p.size[1] + 8000}`}><FluidSymbol part={p} /></svg></div>
+            <Preview><svg className="fl big" viewBox={`${-4000} ${-4000} ${p.size[0] + 8000} ${p.size[1] + 8000}`}><FluidSymbol part={p} /></svg></Preview>
             <div className="about-name">{label(selComp)}</div>
             <p className="about mono" dir="ltr">{p.cls}{p.config ? <><br /><span className="hint">{t.config}: {p.config}</span></> : null}</p>
-            <div className="row" style={{ marginBottom: 10 }}><button onClick={rotateSel}>{t.rotate} ↻</button><button onClick={deleteSel}>{t.del}</button></div>
+            <div className="row" style={{ marginBottom: 10 }}><button onClick={rotateSel}>{c0.rotate} ↻</button><button onClick={deleteSel}>{c0.del}</button></div>
             <div className="field"><label>{t.ports}</label>
               <div className="hint">{portsOf(selComp).map((q, i) => ({ q, i })).filter(({ q }) => q.kind === fluidKind).map(({ q, i }, n) => <span key={i} className="chip" style={{ marginInlineEnd: 4 }}>{q.label || n + 1}{used.has(selComp.id + ":" + i) ? "" : " · " + t.openPort}</span>)}</div></div>
             {Object.keys(p.props).length > 0 && (<div className="field"><label>{t.props}</label>
@@ -346,34 +329,25 @@ export function FluidApp({ domain, lang, setLang, onHome }: { domain: FluidDomai
         })() : selTube ? (<>
           <h3>{t.tubeSel}</h3>
           <p className="about">{t.from}: {label(comps.find((c) => c.id === selTube.a.c)!)}<br />{t.to}: {label(comps.find((c) => c.id === selTube.b.c)!)}<br />{t.bends}: {selTube.pts.length}</p>
-          <button onClick={deleteSel}>{t.del}</button>
+          <button onClick={deleteSel}>{c0.del}</button>
         </>) : placing ? (<>
-          <div className="preview"><svg className="fl big" viewBox={`${-4000} ${-4000} ${placing.size[0] + 8000} ${placing.size[1] + 8000}`}><FluidSymbol part={placing} /></svg></div>
+          <Preview><svg className="fl big" viewBox={`${-4000} ${-4000} ${placing.size[0] + 8000} ${placing.size[1] + 8000}`}><FluidSymbol part={placing} /></svg></Preview>
           <div className="about-name">{fluidName(placing.cls, placing.description, lang)}</div>
           <p className="hint">{t.placeHint}</p>
         </>) : (<p className="hint">{tool === "tube" ? t.tubeHint : t.selHint}</p>)}
-      </div>
-    </div>
-
-    <div className="status">
+    </>}
+    status={<>
       <span><b>{comps.length}</b> {t.parts}</span><span><b>{tubes.length}</b> {t.tubes}</span>
       <span className="chip">{t.simSoon}</span>
-    </div>
-
-    {dlg && (<div className="modal" onClick={(e) => { if (e.target === e.currentTarget) setDlg(false); }}>
-      <div className="dlg" role="dialog" aria-modal="true">
-        <h2>{t.file}</h2>
+    </>}
+    overlay={dlg && (<Dialog lang={lang} title={c0.file} onClose={() => setDlg(false)}>
         <p className="note">{t.ctNote}</p>
         <div className="row">
           <button className="go" onClick={() => fileRef.current?.click()}>{t.openCt}</button>
           <button onClick={() => jsonRef.current?.click()}>{t.openJson}</button>
           {saver && <button onClick={saveJson}>{t.saveJson}</button>}
-          <span className="spacer"></span>
-          <button onClick={() => setDlg(false)}>{t.close}</button>
         </div>
         <input ref={fileRef} type="file" accept=".ct" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) openCt(f); e.target.value = ""; }} />
         <input ref={jsonRef} type="file" accept=".json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) openJson(f); e.target.value = ""; }} />
-      </div>
-    </div>)}
-  </div>);
+    </Dialog>)} />);
 }

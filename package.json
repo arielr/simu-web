@@ -1,13 +1,14 @@
 {
   "name": "simu-web",
   "private": true,
-  "version": "0.7.0",
+  "version": "0.8.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:single": "SINGLE=1 vite build"
   },
   "dependencies": {
     "react": "^18.3.1",

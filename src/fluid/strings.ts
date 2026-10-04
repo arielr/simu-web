@@ -1,9 +1,7 @@
+/** Strings used only by the pneumatic and hydraulic programs (shared ones are in shared/i18n.ts). */
 export const FS = {
   en: {
-    dir: "ltr",
-    pneu: "Pneumatics", hyd: "Hydraulics", elec: "Electrical",
-    home: "All programs", select: "Select", tube: "Tube", undo: "Undo", newDoc: "New", file: "File", examples: "Examples",
-    rotate: "Rotate", del: "Delete", untitled: "Untitled circuit", newName: "New circuit",
+    tube: "Tube", newName: "New circuit",
     groups: { actuator: "Actuators", supply: "Supply & air/oil treatment", valve: "Valves", vgroup: "Valve groups", sensor: "Measuring & sensors", other: "Other (from example circuits)" } as Record<string, string>,
     placeHint: "Click on the sheet to place it. R rotates, Esc cancels.",
     tubeHint: "Click a port, add bends by clicking the sheet, then click another port. Esc cancels.",
@@ -12,17 +10,14 @@ export const FS = {
     tubeSel: "Tube", from: "From", to: "To", bends: "Bends",
     openCt: "Open FluidSIM file (.ct)", saveJson: "Save project (.json)", openJson: "Open project (.json)",
     ctNote: "Opens circuits saved by FluidSIM 4. Saving back to .ct is the next step; for now save the project as .json.",
-    close: "Close", imported: (n: number, t: number) => `Imported ${n} parts and ${t} tubes.`,
+    imported: (n: number, t: number) => `Imported ${n} parts and ${t} tubes.`,
     skipped: "Not shown (text, pictures, diagrams)", wrongProgram: (p: string) => `This file was made in FluidSIM ${p}; it opens here, but belongs to the ${p === "H" ? "hydraulics" : "pneumatics"} program.`,
     parts: "parts", tubes: "tubes", simSoon: "Simulation: coming next",
     exP1: "Cylinder with 5/2 valve", exP2: "Cylinder, two 3/2 valves", exH1: "Electro-hydraulic cylinder",
-    lang: "Language", openPort: "free", search: "Search parts…",
+    openPort: "free"
   },
   he: {
-    dir: "rtl",
-    pneu: "פנאומטיקה", hyd: "הידראוליקה", elec: "חשמל",
-    home: "כל התוכנות", select: "בחירה", tube: "צינור", undo: "בטל", newDoc: "חדש", file: "קובץ", examples: "דוגמאות",
-    rotate: "סובב", del: "מחק", untitled: "מעגל ללא שם", newName: "מעגל חדש",
+    tube: "צינור", newName: "מעגל חדש",
     groups: { actuator: "מפעילים", supply: "אספקה וטיפול באוויר/שמן", valve: "שסתומים", vgroup: "קבוצות שסתומים", sensor: "מדידה וחיישנים", other: "אחר (ממעגלי הדוגמה)" } as Record<string, string>,
     placeHint: "לחץ על הדף כדי למקם. R מסובב, Esc מבטל.",
     tubeHint: "לחץ על יציאה, הוסף כיפופים בלחיצה על הדף, ואז לחץ על יציאה אחרת. Esc מבטל.",
@@ -31,11 +26,11 @@ export const FS = {
     tubeSel: "צינור", from: "מ", to: "אל", bends: "כיפופים",
     openCt: "פתח קובץ FluidSIM ‏(.ct)", saveJson: "שמור פרויקט (.json)", openJson: "פתח פרויקט (.json)",
     ctNote: "פותח מעגלים שנשמרו ב-FluidSIM 4. שמירה חזרה ל-.ct היא השלב הבא; בינתיים אפשר לשמור את הפרויקט כ-.json.",
-    close: "סגור", imported: (n: number, t: number) => `יובאו ${n} רכיבים ו-${t} צינורות.`,
+    imported: (n: number, t: number) => `יובאו ${n} רכיבים ו-${t} צינורות.`,
     skipped: "לא מוצג (טקסט, תמונות, דיאגרמות)", wrongProgram: (p: string) => `הקובץ נוצר ב-FluidSIM ${p}; הוא נפתח כאן, אבל שייך לתוכנת ה${p === "H" ? "הידראוליקה" : "פנאומטיקה"}.`,
     parts: "רכיבים", tubes: "צינורות", simSoon: "סימולציה: בשלב הבא",
     exP1: "בוכנה עם שסתום 5/2", exP2: "בוכנה ושני שסתומי 3/2", exH1: "בוכנה אלקטרו-הידראולית",
-    lang: "שפה", openPort: "פנויה", search: "חיפוש רכיבים…",
+    openPort: "פנויה"
   },
 };
 export type FStrings = typeof FS.en;

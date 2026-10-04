@@ -111,3 +111,6 @@ svg.fl *{vector-effect:non-scaling-stroke}
 .part svg.fl g,.part svg.fl [stroke-width]{stroke-width:1.1px}
 svg.fl.big g,svg.fl.big [stroke-width]{stroke-width:1.5px}
 .drawer .part{font-size:13px}
+a.card{color:var(--ink);text-decoration:none}
+a.card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.bar select{max-width:170px}

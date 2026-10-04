@@ -2,7 +2,9 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { CAD_CATALOG_NAMES, RAW_CAT, RAW_NAMES, rawTerminals } from "../cad/catalog";
 import { parseCad, writeCad } from "../cad/format";
-import { detectSaver } from "../platform/save";
+import { useLang, useHistory, usePersist, useSaver, useFlash, useKeys, useTitle, nid, safeName } from "../shared/hooks";
+import { COMMON, readLang } from "../shared/i18n";
+import { EditorFrame, HomeButton, Brand, Seg, ZoomControl, UndoButton, NameField, ExamplesMenu, BarEnd, PartsDrawer, Dialog, matches } from "../shared/ui";
 import { cadExample, catalog2Example, catalog3Example, catalog4Example, catalog5Example, catalogExample, test6Example, test7Example, threePhaseExample, timerExample } from "../examples/index";
 import { pname } from "../i18n/descriptions";
 import { I18N } from "../i18n/strings";
@@ -12,14 +14,13 @@ import { actuated, closed, solve } from "../sim/solve";
 import { About, Icon, Sym } from "./symbols";
 
 export const STORE='simu-web-v6';
-export function initLang(){try{const l=localStorage.getItem('simu-web-lang');if(l==='he'||l==='en')return l;}catch(e){}return 'en';}
+export const initLang=readLang;
 export function loadSaved(){try{const s=JSON.parse(localStorage.getItem(STORE));if(s&&Array.isArray(s.comps))return s;}catch(e){}return cadExample(initLang());}
-export let uid=Date.now();const nid=p=>p+(++uid).toString(36);
-export const safeName=s=>(s||'drawing').replace(/[\\/:*?"<>|]+/g,' ').trim().slice(0,80)||'drawing';
+const EXAMPLES=[['cad','exCad',cadExample],['timer','exTimer',timerExample],['p3','ex3',threePhaseExample],['t6','exT6',test6Example],['t7','exT7',test7Example],['all','exAll',catalogExample],['all2','exAll2',catalog2Example],['all3','exAll3',catalog3Example],['all4','exAll4',catalog4Example],['all5','exAll5',catalog5Example]];
 
 export function App({onHome}={}){
-  const [lang,setLang]=useState(initLang);const t=I18N[lang];
-  useEffect(()=>{try{localStorage.setItem('simu-web-lang',lang);}catch(e){}document.title='SIMU Web · '+t.elecTitle;},[lang]);
+  const [lang,setLang]=useLang();const t=I18N[lang];
+  useTitle('SIMU Web · '+COMMON[lang].programs.electrical);
   const init=useMemo(loadSaved,[]);
   const [name,setName]=useState(init.name||'');
   const [comps,setComps]=useState(init.comps);
@@ -38,14 +39,14 @@ export function App({onHome}={}){
   const [dlg,setDlg]=useState(null);
   const [fmt,setFmt]=useState('cad');
   const [exOpen,setExOpen]=useState(false);
-  const [msg,setMsg]=useState('');
-  const [dl,setDl]=useState(null);
-  const svgRef=useRef(),stageRef=useRef(),drag=useRef(null),hist=useRef([]);
+  const [msg,setMsg]=useFlash();
+  const [query,setQuery]=useState('');
+  const dl=useSaver();
+  const svgRef=useRef(),stageRef=useRef(),drag=useRef(null);
 
-  useEffect(()=>{let live=true;detectSaver().then(d=>{if(live)setDl(d);});return()=>{live=false;};},[]);
-  useEffect(()=>{try{localStorage.setItem(STORE,JSON.stringify({name,comps,wires,cadOrder:cadMeta.order,cadFooter:cadMeta.footer}));}catch(e){}},[name,comps,wires,cadMeta]);
-  const snap=()=>{hist.current.push({comps,wires});if(hist.current.length>80)hist.current.shift();};
-  const undo=()=>{const h=hist.current.pop();if(h){setComps(h.comps);setWires(h.wires);setSel(null);}};
+  const persisted=useMemo(()=>({name,comps,wires,cadOrder:cadMeta.order,cadFooter:cadMeta.footer}),[name,comps,wires,cadMeta]);
+  usePersist(STORE,persisted);
+  const {push:snap,undo}=useHistory(()=>({comps,wires}),h=>{setComps(h.comps);setWires(h.wires);setSel(null);});
 
   useEffect(()=>{if(mode!=='sim')return;const i=setInterval(()=>setNow(Date.now()),100);return()=>clearInterval(i);},[mode]);
   const res=useMemo(()=>mode==='sim'?solve(comps,wires,inp,sim.coils,sim.timers,now):null,[mode,comps,wires,inp,sim,now]);
@@ -105,7 +106,7 @@ export function App({onHome}={}){
   const upd=(id,patch)=>setComps(cs=>cs.map(x=>x.id===id?{...x,...patch}:x));
   const updW=(id,patch)=>setWires(ws=>ws.map(x=>x.id===id?{...x,...patch}:x));
 
-  useEffect(()=>{const k=e=>{if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)||dlg)return;
+  useKeys(e=>{if(dlg)return;
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undo();return;}
     if(mode!=='edit')return;
     if(e.key==='Delete'||e.key==='Backspace')del();
@@ -113,8 +114,7 @@ export function App({onHome}={}){
     else if(e.key==='f'||e.key==='F'||e.key==='כ')flip();
     else if(e.key==='w'||e.key==='W'||e.key==="'"){setTool('wire');setWStart(null);}
     else if(e.key==='Shift')setVFirst(v=>!v);
-    else if(e.key==='Escape'){setWStart(null);setTool('select');}};
-    window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k);});
+    else if(e.key==='Escape'){setWStart(null);setTool('select');}});
 
   const dots=useMemo(()=>{const cnt={},out=[];const segs=[];wires.forEach(w=>{const e=elbow(w);segs.push([w.a,e,w.id],[e,w.b,w.id]);});
     const ends=[];wires.forEach(w=>{ends.push([w.a,w.id],[w.b,w.id]);});comps.forEach(c=>pinsOf(c).forEach(p=>ends.push([p,c.id])));
@@ -161,42 +161,30 @@ export function App({onHome}={}){
       if(!ok)return;
       setMsg(t.saved);
     }catch(err){if(err&&err.code==='declined')return;setMsg(t.noSave);}};
-  useEffect(()=>{if(!msg)return;const i=setTimeout(()=>setMsg(''),6000);return()=>clearTimeout(i);},[msg]);
 
   const labelPos=c=>{const d=DEFS[c.type];if(d.kind==='src'&&c.type!=='supply')return null;
     const [dx,dy]=d.lab||[17,34];if(c.type==='raw')return [c.x*G+18,c.y*G+56];if(c.type==='interlock')return null;
     if(!c.rot)return [c.x*G+dx,c.y*G+dy];const q=c.rot|0;const [rx,ry]=rotV(q,dx,dy);return [c.x*G+rx+(q===1?-14:0),c.y*G+ry+(q===2?12:q===3?4:-6)];};
   const wireStroke=w=>{const col=res?nodeColor(w.a):null;if(col)return col;return w.kind==='n'?'var(--neu)':w.kind==='pe'?'var(--pe)':'currentColor';};
 
-  return (<div className="app" dir={t.dir} lang={lang}>
-    <div className="bar">
-      {onHome&&(<button className="home" onClick={onHome} title={t.home} aria-label={t.home}>⌂</button>)}
-      <span className="brand" dir="ltr">SIMU Web<small>{t.elecTitle}</small></span>
-      <div className="seg" role="group" aria-label="mode">
-        <button className={mode==='edit'?'on':''} onClick={()=>toMode('edit')}>{t.edit}</button>
-        <button className={mode==='sim'?'on':''} onClick={()=>toMode('sim')}>{t.sim}</button>
-      </div>
-      {mode==='edit'&&(<div className="seg" role="group" aria-label="tool">
-        <button className={tool==='select'?'on':''} onClick={()=>{setTool('select');setWStart(null);}}>{t.select}</button>
-        <button className={tool==='wire'?'on':''} onClick={()=>{setTool('wire');setWStart(null);}}>{t.wire}</button>
-      </div>)}
-      <button onClick={undo} title="Ctrl+Z">{t.undo}</button>
-      <input className="proj" id="proj" value={name} onInput={e=>setName(e.target.value)} aria-label={t.projLabel}/>
-      <span className="spacer"></span>
-      <div className="seg"><button onClick={()=>setZoom(z=>Math.max(.5,+(z-.25).toFixed(2)))} aria-label="zoom out">−</button><button className="mono" onClick={()=>setZoom(1)}>{Math.round(zoom*100)}%</button><button onClick={()=>setZoom(z=>Math.min(2.5,+(z+.25).toFixed(2)))} aria-label="zoom in">+</button></div>
-      <button onClick={()=>{snap();toMode('edit');setComps([]);setWires([]);setName(t.newName);setCadMeta({order:null,footer:null});setSel(null);}}>{t.newDoc}</button>
-      <select id="examples" aria-label={t.examples} value="" onChange={e=>{const v=e.target.value;if(v==='cad')loadDrawing(cadExample(lang),'');if(v==='timer')loadDrawing(timerExample(lang),'');if(v==='p3')loadDrawing(threePhaseExample(lang),'');if(v==='all')loadDrawing(catalogExample(lang),'');if(v==='all2')loadDrawing(catalog2Example(lang),'');if(v==='all3')loadDrawing(catalog3Example(lang),'');if(v==='all4')loadDrawing(catalog4Example(lang),'');if(v==='all5')loadDrawing(catalog5Example(lang),'');if(v==='t6')loadDrawing(test6Example(lang),'');if(v==='t7')loadDrawing(test7Example(lang),'');}}>
-        <option value="">{t.examples}…</option><option value="cad">{t.exCad}</option><option value="timer">{t.exTimer}</option><option value="p3">{t.ex3}</option><option value="t6">{t.exT6}</option><option value="t7">{t.exT7}</option><option value="all">{t.exAll}</option><option value="all2">{t.exAll2}</option><option value="all3">{t.exAll3}</option><option value="all4">{t.exAll4}</option><option value="all5">{t.exAll5}</option></select>
-      <button className="go" onClick={()=>setDlg('io')}>{t.file}</button>
-      <select id="lang" aria-label={t.lang} value={lang} onChange={e=>setLang(e.target.value)}><option value="en">English</option><option value="he">עברית</option></select>
-    </div>
+  const drawerGroups=groups.map(g=>({id:g,title:t.groups[g],items:Object.entries(DEFS).filter(([k,d])=>d.group===g&&!PALETTE_HIDE.has(k)&&matches(query,pname(t,k),k)).map(([k])=>({key:k,icon:<Icon type={k}/>,label:pname(t,k)}))}));
+  const bar=(<>
+      <HomeButton lang={lang} onHome={onHome}/>
+      <Brand title={COMMON[lang].programs.electrical}/>
+      <Seg label="mode" value={mode} options={[['edit',t.edit],['sim',t.sim]]} onChange={toMode}/>
+      {mode==='edit'&&(<Seg label="tool" value={tool==='wire'?'wire':'select'} options={[['select',t.select],['wire',t.wire]]} onChange={v=>{setTool(v);setWStart(null);}}/>)}
+      <UndoButton lang={lang} onUndo={undo}/>
+      <NameField lang={lang} value={name} onChange={setName}/>
+      <BarEnd lang={lang} setLang={setLang}
+        zoom={<ZoomControl lang={lang} zoom={zoom} setZoom={setZoom} min={.5} max={2.5} onReset={()=>setZoom(1)}/>}
+        onNew={()=>{snap();toMode('edit');setComps([]);setWires([]);setName(t.newName);setCadMeta({order:null,footer:null});setSel(null);}}
+        examples={<ExamplesMenu lang={lang} items={EXAMPLES.map(([k,l])=>[k,t[l]])} onPick={k=>{const ex=EXAMPLES.find(x=>x[0]===k);if(ex)loadDrawing(ex[2](lang),'');}}/>}
+        onFile={()=>setDlg('io')}/>
+    </>);
 
-    <div className="main">
-      <div className="drawer" aria-label={t.parts_}>
-        {groups.map(g=>(<div key={g} style={{display:'contents'}}><div className="grp">{t.groups[g]}</div>
-          {Object.entries(DEFS).filter(([k,d])=>d.group===g&&!PALETTE_HIDE.has(k)).map(([t2])=>(<button key={t2} className={'part'+(placing===t2?' on':'')} disabled={mode==='sim'} onClick={()=>{toMode('edit');setTool('place:'+t2);}}><Icon type={t2}/><span>{pname(t,t2)}</span></button>))}</div>))}
-      </div>
-
+  return (<EditorFrame app="elec" lang={lang} bar={bar}
+    drawer={<PartsDrawer lang={lang} label={t.parts_} groups={drawerGroups} active={placing} disabled={mode==='sim'} onPick={k=>{toMode('edit');setTool('place:'+k);}} query={query} setQuery={setQuery}/>}
+    stage={<>
       <div className="stage" ref={stageRef}>
         {res&&(res.short||!res.stable)&&(<div className="warnwrap"><div className="warn">{res.short?t.short:t.unstable}</div></div>)}
         <svg className="sheet" ref={svgRef} width={W*G*zoom} height={H*G*zoom} viewBox={`0 0 ${W*G} ${H*G}`}
@@ -250,7 +238,8 @@ export function App({onHome}={}){
         </svg>
       </div>
 
-      <div className="insp">
+    </>}
+    inspector={<>
         {mode==='sim'?(<><h3>{t.simTitle}</h3>
           <p className="hint">{t.simHint}</p>
           <div className="legend"><div><span style={{background:'var(--live)'}}></span>{t.legL}</div><div><span style={{background:'var(--l2)'}}></span>{t.legL2}</div><div><span style={{background:'var(--l3)'}}></span>{t.legL3}</div><div><span style={{background:'var(--neu)'}}></span>{t.legN}</div><div><span style={{background:'var(--accent)'}}></span>{t.legOn}</div></div>
@@ -280,20 +269,15 @@ export function App({onHome}={}){
           <div className="hint" style={{marginTop:'10px',display:'grid',gap:'4px'}}>
             <div><span className="kbd">W</span> {t.keys1}</div>
             <div><span className="kbd">Del</span> {t.keys2}</div></div></>)}
-      </div>
-    </div>
-
-    <div className="status">
+    </>}
+    status={<>
       <span className={'chip'+(mode==='sim'?' sim':'')}>{mode==='sim'?'SIM':'EDIT'}</span>
       {hover&&(<span className="mono" dir="ltr">x {hover[0]*3} · y {hover[1]*3}</span>)}
       <span><b>{comps.length}</b> {t.parts_} · <b>{wires.length}</b> {t.wires_}</span>
       {msg&&(<span style={{color:'var(--ink)'}}>{msg}</span>)}
       <span className="spacer"></span><span>{t.autosave}</span>
-    </div>
-
-    {dlg==='io'&&(<div className="modal" onPointerDown={e=>{if(e.target===e.currentTarget)setDlg(null);}}>
-      <div className="dlg" role="dialog" aria-label={t.ioTitle}>
-        <h2>{t.ioTitle}</h2>
+    </>}
+    overlay={dlg==='io'&&(<Dialog lang={lang} title={t.ioTitle} onClose={()=>setDlg(null)}>
         <div className="row"><label className="hint" htmlFor="file">{t.openFile}</label><input id="file" type="file" accept=".cad,.json,.txt" onChange={onFile} style={{maxWidth:'100%'}}/></div>
         <div className="seg" role="group" style={{justifySelf:'start'}}>
           <button className={fmt==='cad'?'on':''} onClick={()=>setFmt('cad')}>{t.fmtCad}</button>
@@ -309,6 +293,5 @@ export function App({onHome}={}){
           <span className="spacer"></span><button onClick={()=>setDlg(null)}>{t.close}</button>
         </div>
         {msg&&(<div className="hint" style={{color:'var(--ink)'}}>{msg}</div>)}
-      </div></div>)}
-  </div>);
+      </Dialog>)}/>);
 }
