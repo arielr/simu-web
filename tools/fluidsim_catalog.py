@@ -23,7 +23,7 @@ def parse(path):
     head, data = ct.read_ct(open(path, 'rb').read())
     H = [h.decode('latin-1') for h in head]
     txt = ct.body_text(data) if data is not None else ''
-    objs = []; byid = {}; sym = {}; sec = 'pre'; cur = None; cs = None
+    objs = []; byid = {}; sym = {}; gates = []; sec = 'pre'; cur = None; cs = None
     for line in txt.split('\n'):
         if sec == 'pre':
             if line.strip() == 'END_FSPREVIEW': sec = 'obj'
@@ -36,7 +36,7 @@ def parse(path):
                            rot=int(m.group(7)), props={}, fields={}, ports=[])
                 objs.append(cur); byid[cur['id']] = cur; continue
             g = re.match(r'^gate\d+ # (\d+) (\d+)$', line)
-            if g and int(g.group(1)) in byid: byid[int(g.group(1))]['ports'].append(int(g.group(2))); continue
+            if g: gates.append((int(g.group(1)), int(g.group(2)))); continue
             if not cur: continue
             s = re.match(r'^ S (\S+) (\S+) ?(.*)$', line)
             if s: cur['props'][s.group(1)] = s.group(3); continue
@@ -48,6 +48,8 @@ def parse(path):
             m = re.match(r'^SYM (\d+)$', line)
             if m: cs = int(m.group(1)); sym[cs] = []; continue
             if cs is not None and line.strip(): sym[cs].append(line.strip())
+    for a, b in gates:   # indices in file order, not O-ids
+        if a < len(objs) and b < len(objs): objs[a]['ports'].append(objs[b]['id'])
     return H, objs, byid, sym
 
 def main(tables, root, out):
@@ -81,9 +83,19 @@ def main(tables, root, out):
                 if not p or p['cls'] not in PORT_CLASSES: continue
                 ports.append(dict(kind=p['cls'], x=(p['box'][0] + p['box'][2]) // 2 - x0, y=(p['box'][1] + p['box'][3]) // 2 - y0,
                                   label=p['props'].get('description', ''), ex=p['props'].get('ex_type', '')))
+            W, Hh = (y1 - y0, x1 - x0) if o['rot'] in (90, 270) else (x1 - x0, y1 - y0)
+            def unrot(x, y, r=o['rot']):   # rotated-bbox coords -> unrotated part coords (rot is clockwise)
+                if r == 90: return y, Hh - x
+                if r == 180: return W - x, Hh - y
+                if r == 270: return W - y, x
+                return x, y
+            for q in ports: q['x'], q['y'] = unrot(q['x'], q['y'])
             e = cat.setdefault(key, dict(cls=o['cls'], config=cfg, programs=[], domain=domain, files=[],
                                          description=o['props'].get('description') or descr, model=o['props'].get('MoName', ''),
-                                         size=[x1 - x0, y1 - y0], ports=ports, sym=sym.get(k, []) if k is not None else [],
+                                         size=[W, Hh], ports=ports,
+                                         # the SYM block of an object is named by its dxf_prim_list property
+                                         sym=sym.get(int(o['props']['dxf_prim_list']), []) if o['props'].get('dxf_prim_list', '').isdigit() else [],
+                                         sym2=sym.get(int(o['props']['dxf_prim_list2']), []) if o['props'].get('dxf_prim_list2', '').isdigit() else [],
                                          props={kk: v for kk, v in o['props'].items() if not kk.endswith('_FEST') and not kk.startswith('dxf_prim')},
                                          fields=o['fields']))
             if prog not in e['programs']: e['programs'].append(prog)

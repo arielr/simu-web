@@ -81,3 +81,33 @@ text{font-family:var(--f-mono)}
 @keyframes blink{50%{opacity:.2}}
 .blink{animation:blink 1s steps(1) infinite}
 @media (prefers-reduced-motion: reduce){ .lampglow{filter:none!important} .blink{animation:none} }
+
+/* ---- three programs: each has its own accent ---- */
+[data-app="pneu"]{--accent:#2f78c4;--sel:#2f78c4;--tube:#2f78c4;--accent-ink:#fff}
+[data-app="hyd"]{--accent:#c2492e;--sel:#c2492e;--tube:#c2492e;--accent-ink:#fff}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) [data-app="pneu"]{--accent:#6aa8ec;--sel:#6aa8ec;--tube:#6aa8ec;--accent-ink:#071423}
+  :root:not([data-theme="light"]) [data-app="hyd"]{--accent:#ee7a5d;--sel:#ee7a5d;--tube:#ee7a5d;--accent-ink:#240b05}}
+button.home{font-size:16px;line-height:1;padding:5px 9px}
+.drawer .search{width:100%;box-sizing:border-box;margin-bottom:6px}
+.part svg{flex:none}
+.warn.info{background:var(--panel);color:var(--ink);border-color:var(--accent);font-weight:500}
+table.props{width:100%;border-collapse:collapse;font-size:11.5px}
+table.props td{padding:2px 4px;border-bottom:1px solid var(--line);direction:ltr;text-align:left}
+.launch{min-height:100%;box-sizing:border-box;padding:16px;display:grid;grid-template-rows:auto 1fr;gap:16px;max-width:1180px;margin:0 auto}
+.launch header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.launch .brand{font-size:20px}
+.launch .tag{color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;align-content:center}
+.card{display:grid;gap:8px;text-align:start;padding:18px;border-radius:14px;background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--accent);cursor:pointer}
+.card:hover{border-color:var(--accent);transform:translateY(-1px)}
+.card .art{background:var(--sheet);border:1px solid var(--line);border-radius:10px;height:150px;display:grid;place-items:center;padding:10px}
+.card .art svg{width:100%;height:100%}
+.card .ttl{font-size:20px;font-weight:600}
+.card .desc{color:var(--muted);line-height:1.5;min-height:3em}
+.card .foot{display:flex;justify-content:space-between;align-items:center}
+.card .open{color:var(--accent);font-weight:600}
+[data-app="elec"]{}
+svg.fl *{vector-effect:non-scaling-stroke}
+.part svg.fl g,.part svg.fl [stroke-width]{stroke-width:1.1px}
+svg.fl.big g,svg.fl.big [stroke-width]{stroke-width:1.5px}
+.drawer .part{font-size:13px}

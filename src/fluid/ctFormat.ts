@@ -108,7 +108,7 @@ export interface CtObject {
   fields: Record<string, Record<string, { type: string; value: string }>>;
   /** tube polyline segments drawn from a connection port, relative to the port */
   lines: [number, number, number, number][];
-  /** ids of the ports/sub-objects this object owns (`gateN # owner port`) */
+  /** O-ids of the ports this object owns (from `gateN # ownerIndex portIndex`, indices in file order) */
   ports: number[];
 }
 
@@ -159,6 +159,7 @@ export function readCt(bytes: Uint8Array): CtFile {
   let section: "pre" | "objects" | "sym" | "done" = "pre";
   let cur: CtObject | null = null;
   let curSym: number | null = null;
+  const gates: [number, number][] = [];
   const OBJ = /^(\S+) O(\d+) (-?\d+) (-?\d+) (-?\d+) (-?\d+) (-?\d+)((?: -?\d+)*)$/;
   for (const line of lines) {
     if (section === "pre") { if (line.trim() === "END_FSPREVIEW") section = "objects"; continue; }
@@ -172,7 +173,7 @@ export function readCt(bytes: Uint8Array): CtFile {
         continue;
       }
       const g = /^gate\d+ # (\d+) (\d+)$/.exec(line);
-      if (g) { byId.get(+g[1])?.ports.push(+g[2]); continue; }
+      if (g) { gates.push([+g[1], +g[2]]); continue; }
       if (!cur) continue;
       if (line.startsWith("L ")) { const [, a, b, c, d] = line.split(" ").map(Number); cur.lines.push([a, b, c, d]); continue; }
       const s = /^ S (\S+) (\S+) ?(.*)$/.exec(line);
@@ -189,6 +190,8 @@ export function readCt(bytes: Uint8Array): CtFile {
       if (curSym !== null && line) symbols[curSym].push(line);
     }
   }
+  // `gateN # a b`: object #b (index in file order) is a port of object #a
+  for (const [a, b] of gates) if (objects[a] && objects[b]) objects[a].ports.push(objects[b].id);
   return {
     header,
     version: header[0] || "",

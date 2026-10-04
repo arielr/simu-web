@@ -17,9 +17,9 @@ export function loadSaved(){try{const s=JSON.parse(localStorage.getItem(STORE));
 export let uid=Date.now();const nid=p=>p+(++uid).toString(36);
 export const safeName=s=>(s||'drawing').replace(/[\\/:*?"<>|]+/g,' ').trim().slice(0,80)||'drawing';
 
-export function App(){
+export function App({onHome}={}){
   const [lang,setLang]=useState(initLang);const t=I18N[lang];
-  useEffect(()=>{try{localStorage.setItem('simu-web-lang',lang);}catch(e){}},[lang]);
+  useEffect(()=>{try{localStorage.setItem('simu-web-lang',lang);}catch(e){}document.title='SIMU Web · '+t.elecTitle;},[lang]);
   const init=useMemo(loadSaved,[]);
   const [name,setName]=useState(init.name||'');
   const [comps,setComps]=useState(init.comps);
@@ -170,7 +170,8 @@ export function App(){
 
   return (<div className="app" dir={t.dir} lang={lang}>
     <div className="bar">
-      <span className="brand" dir="ltr">SIMU Web<small>v7</small></span>
+      {onHome&&(<button className="home" onClick={onHome} title={t.home} aria-label={t.home}>⌂</button>)}
+      <span className="brand" dir="ltr">SIMU Web<small>{t.elecTitle}</small></span>
       <div className="seg" role="group" aria-label="mode">
         <button className={mode==='edit'?'on':''} onClick={()=>toMode('edit')}>{t.edit}</button>
         <button className={mode==='sim'?'on':''} onClick={()=>toMode('sim')}>{t.sim}</button>

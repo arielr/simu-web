@@ -1,0 +1,379 @@
+/**
+ * Pneumatic / hydraulic circuit editor. One component, two separate programs:
+ * each domain has its own parts library, examples, storage and colour.
+ */
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent as RPE } from "react";
+import { FLUID_CATALOG, FluidPart } from "./catalog";
+import { FluidSymbol } from "./symbols";
+import { fluidName } from "./names";
+import { FS } from "./strings";
+import { importCt } from "./ctImport";
+import { FLUID_EXAMPLES } from "../examples/fluid";
+import {
+  FComp, FluidDoc, FluidDomain, PortRef, Tube, FLUID_KIND, MM, SNAP, PORT_R,
+  partOf, portsOf, portPos, rotSize, rotTransform, routeTube, isFluidPart,
+} from "./model";
+import { detectSaver, Saver } from "../platform/save";
+
+const A3W = 420 * MM, A3H = 297 * MM, PX = 1 / 256; // 4 px per mm at 100 %
+
+/** bounding box of everything drawn */
+function extent(comps: FComp[]): [number, number, number, number] | null {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const c of comps) {
+    const p = partOf(c); if (!p) continue;
+    const [w, h] = rotSize(p, c.rot);
+    x0 = Math.min(x0, c.x); y0 = Math.min(y0, c.y); x1 = Math.max(x1, c.x + w); y1 = Math.max(y1, c.y + h);
+  }
+  return x0 < Infinity ? [x0, y0, x1, y1] : null;
+}
+const GROUPS = ["actuator", "valve", "vgroup", "supply", "sensor", "other"];
+const storeKey = (d: FluidDomain) => "simu-web-fluid-" + d;
+let uid = Date.now();
+const nid = (p: string) => p + (++uid).toString(36);
+const snap = (v: number) => Math.round(v / SNAP) * SNAP;
+const safeName = (s: string) => (s || "circuit").replace(/[\\/:*?"<>|]+/g, " ").trim().slice(0, 80) || "circuit";
+
+function groupOf(p: FluidPart): string {
+  if (p.domain.endsWith("-example")) return "other";
+  const seg = (p.files[0] || "").split(":")[1]?.split("/")[1] || "";
+  return GROUPS.includes(seg) ? seg : "other";
+}
+
+function loadDoc(d: FluidDomain, t: typeof FS.en): FluidDoc {
+  try {
+    const s = JSON.parse(localStorage.getItem(storeKey(d)) || "null");
+    if (s && Array.isArray(s.comps)) return s;
+  } catch { /* storage unavailable */ }
+  const ex = FLUID_EXAMPLES[d][0];
+  try { const r = importCt(ex.bytes(), (t as any)[ex.key]); return { name: r.name, comps: r.comps, tubes: r.tubes }; } catch { return { name: t.newName, comps: [], tubes: [] }; }
+}
+
+type Sel = { k: "c" | "t"; id: string } | null;
+type Drag = { kind: "move"; id: string; dx: number; dy: number; moved: boolean } | null;
+
+function PartIcon({ part }: { part: FluidPart }) {
+  const [w, h] = part.size, pad = 3000, s = Math.max(w, h) + 2 * pad;
+  return (<svg className="fl" width="44" height="30" viewBox={`${(w - s) / 2} ${(h - s * 0.76) / 2} ${s} ${s * 0.76}`} aria-hidden="true"><FluidSymbol part={part} /></svg>);
+}
+
+export function FluidApp({ domain, lang, setLang, onHome }: { domain: FluidDomain; lang: "en" | "he"; setLang: (l: "en" | "he") => void; onHome: () => void }) {
+  const t = FS[lang];
+  const init = useMemo(() => loadDoc(domain, t), [domain]);
+  const [name, setName] = useState(init.name || "");
+  const [comps, setComps] = useState<FComp[]>(init.comps);
+  const [tubes, setTubes] = useState<Tube[]>(init.tubes);
+  const [tool, setTool] = useState<string>("select");
+  const [sel, setSel] = useState<Sel>(null);
+  const [draft, setDraft] = useState<{ a: PortRef; pts: [number, number][] } | null>(null);
+  const [cursor, setCursor] = useState<[number, number] | null>(null);
+  const [placeRot, setPlaceRot] = useState(0);
+  const [zoom, setZoom] = useState(0.75);
+  const [dlg, setDlg] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [query, setQuery] = useState("");
+  const [saver, setSaver] = useState<Saver | null>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [fitReq, setFitReq] = useState(1);
+  const svgRef = useRef<SVGSVGElement>(null), hist = useRef<{ comps: FComp[]; tubes: Tube[] }[]>([]), drag = useRef<Drag>(null);
+  const fileRef = useRef<HTMLInputElement>(null), jsonRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { detectSaver().then(setSaver).catch(() => setSaver(null)); }, []);
+  useEffect(() => { try { localStorage.setItem(storeKey(domain), JSON.stringify({ name, comps, tubes })); } catch { /* ignore */ } }, [name, comps, tubes, domain]);
+  useEffect(() => { document.title = `SIMU Web · ${domain === "pneu" ? t.pneu : t.hyd}`; }, [domain, lang]);
+
+  const palette = useMemo(() => {
+    const kind = FLUID_KIND[domain];
+    const q = query.trim().toLowerCase();
+    const items = Object.entries(FLUID_CATALOG)
+      .filter(([, p]) => isFluidPart(p, domain) && p.ports.some((x) => x.kind === kind))
+      .map(([key, p]) => ({ key, p, label: fluidName(p.cls, p.description, lang), g: groupOf(p) }))
+      .filter((x) => !q || x.label.toLowerCase().includes(q) || x.p.cls.toLowerCase().includes(q));
+    return GROUPS.map((g) => ({ g, items: items.filter((x) => x.g === g).sort((a, b) => a.label.localeCompare(b.label)) })).filter((x) => x.items.length);
+  }, [domain, lang, query]);
+
+  const push = () => { hist.current.push({ comps, tubes }); if (hist.current.length > 80) hist.current.shift(); };
+  const undo = () => { const h = hist.current.pop(); if (h) { setComps(h.comps); setTubes(h.tubes); setSel(null); } };
+  const loadDoc2 = (d: FluidDoc) => { push(); setComps(d.comps); setTubes(d.tubes); setName(d.name); setSel(null); setDraft(null); setTool("select"); setFitReq((n) => n + 1); };
+  const ext = extent(comps);
+  const SHEET_W = Math.max(A3W, ext ? ext[2] + 20 * MM : 0), SHEET_H = Math.max(A3H, ext ? ext[3] + 20 * MM : 0);
+  // zoom to fit the circuit after loading a file
+  useEffect(() => {
+    const st = stageRef.current, e = extent(comps);
+    if (!st || !e) return;
+    const m = 12 * MM, z = Math.min(st.clientWidth / ((e[2] - e[0] + 2 * m) * PX), st.clientHeight / ((e[3] - e[1] + 2 * m) * PX), 2);
+    const zz = Math.max(0.25, Math.floor(z * 20) / 20);
+    setZoom(zz);
+    requestAnimationFrame(() => { st.scrollLeft = (e[0] - m) * PX * zz; st.scrollTop = (e[1] - m) * PX * zz; });
+  }, [fitReq]);
+
+  const toSheet = (e: { clientX: number; clientY: number }): [number, number] => {
+    const svg = svgRef.current!, pt = svg.createSVGPoint();
+    pt.x = e.clientX; pt.y = e.clientY;
+    const p = pt.matrixTransform(svg.getScreenCTM()!.inverse());
+    return [p.x, p.y];
+  };
+  const hitPort = (x: number, y: number): PortRef | null => {
+    let best: PortRef | null = null, bd = PORT_R * 2.2;
+    for (const c of comps) portsOf(c).forEach((p, i) => {
+      const d = Math.hypot(p.ax - x, p.ay - y);
+      if (d < bd) { bd = d; best = { c: c.id, p: i }; }
+    });
+    return best;
+  };
+  const kindOf = (r: PortRef) => { const c = comps.find((k) => k.id === r.c); return c ? portsOf(c)[r.p]?.kind : undefined; };
+
+  const finishTube = (b: PortRef) => {
+    if (!draft) return;
+    if (b.c === draft.a.c && b.p === draft.a.p) { setDraft(null); return; }
+    if (kindOf(b) !== kindOf(draft.a)) { setMsg(lang === "he" ? "אפשר לחבר רק יציאות מאותו סוג" : "Only ports of the same kind can be joined"); return; }
+    push();
+    setTubes((ts) => [...ts, { id: nid("t"), a: draft.a, b, pts: draft.pts }]);
+    setDraft(null);
+  };
+
+  const onDown = (e: RPE<SVGSVGElement>) => {
+    if (e.button !== 0) return;
+    const [x, y] = toSheet(e);
+    setMsg("");
+    if (tool.startsWith("place:")) {
+      const key = tool.slice(6), part = FLUID_CATALOG[key];
+      const [w, h] = rotSize(part, placeRot);
+      push();
+      const c: FComp = { id: nid("c"), key, x: snap(x - w / 2), y: snap(y - h / 2), rot: placeRot };
+      setComps((cs) => [...cs, c]);
+      setSel({ k: "c", id: c.id });
+      if (!e.shiftKey) setTool("select");
+      return;
+    }
+    const port = hitPort(x, y);
+    if (draft) {
+      if (port) finishTube(port);
+      else setDraft({ ...draft, pts: [...draft.pts, [snap(x), snap(y)]] });
+      return;
+    }
+    if (port && (tool === "tube" || tool === "select")) {
+      const busy = tool === "select" && tubes.some((tb) => (tb.a.c === port.c && tb.a.p === port.p) || (tb.b.c === port.c && tb.b.p === port.p));
+      if (!busy) { setDraft({ a: port, pts: [] }); setSel(null); return; }
+    }
+    const el = (e.target as Element).closest("[data-cid],[data-tid]");
+    if (el?.getAttribute("data-tid")) { setSel({ k: "t", id: el.getAttribute("data-tid")! }); return; }
+    const cid = el?.getAttribute("data-cid");
+    if (cid && tool === "select") {
+      const c = comps.find((k) => k.id === cid)!;
+      setSel({ k: "c", id: cid });
+      drag.current = { kind: "move", id: cid, dx: x - c.x, dy: y - c.y, moved: false };
+      (e.currentTarget as Element).setPointerCapture(e.pointerId);
+      return;
+    }
+    setSel(null);
+  };
+  const onMove = (e: RPE<SVGSVGElement>) => {
+    const [x, y] = toSheet(e);
+    setCursor([x, y]);
+    const d = drag.current;
+    if (d && d.kind === "move") {
+      if (!d.moved) { push(); d.moved = true; }
+      const nx = snap(x - d.dx), ny = snap(y - d.dy);
+      setComps((cs) => cs.map((c) => (c.id === d.id && (c.x !== nx || c.y !== ny) ? { ...c, x: nx, y: ny } : c)));
+    }
+  };
+  const onUp = (e: RPE<SVGSVGElement>) => {
+    const d = drag.current;
+    drag.current = null;
+    if (draft && !d) {
+      // drag-from-port: releasing on another port finishes the tube
+      const [x, y] = toSheet(e);
+      const port = hitPort(x, y);
+      if (port && !(port.c === draft.a.c && port.p === draft.a.p)) finishTube(port);
+    }
+  };
+
+  const rotateSel = () => {
+    if (tool.startsWith("place:")) { setPlaceRot((r) => (r + 90) % 360); return; }
+    if (sel?.k !== "c") return;
+    push();
+    setComps((cs) => cs.map((c) => {
+      if (c.id !== sel.id) return c;
+      const part = partOf(c)!, [w, h] = rotSize(part, c.rot), rot = (c.rot + 90) % 360;
+      return { ...c, rot, x: snap(c.x + w / 2 - h / 2), y: snap(c.y + h / 2 - w / 2) };
+    }));
+  };
+  const deleteSel = () => {
+    if (!sel) return;
+    push();
+    if (sel.k === "c") { setComps((cs) => cs.filter((c) => c.id !== sel.id)); setTubes((ts) => ts.filter((tb) => tb.a.c !== sel.id && tb.b.c !== sel.id)); }
+    else setTubes((ts) => ts.filter((tb) => tb.id !== sel.id));
+    setSel(null);
+  };
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).closest("input,textarea,select")) return;
+      if (e.key === "Escape") { setDraft(null); setTool("select"); setPlaceRot(0); }
+      else if (e.key === "r" || e.key === "R") rotateSel();
+      else if (e.key === "Delete" || e.key === "Backspace") deleteSel();
+      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); }
+    };
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  });
+
+  const openCt = async (f: File) => {
+    try {
+      const r = importCt(new Uint8Array(await f.arrayBuffer()), f.name.replace(/\.ct$/i, ""));
+      loadDoc2(r);
+      const extra = Object.values(r.skipped).reduce((a, b) => a + b, 0);
+      const wrong = r.program !== "?" && (r.program === "H") !== (domain === "hyd");
+      setMsg(t.imported(r.comps.length, r.tubes.length) + (extra ? ` ${t.skipped}: ${extra}.` : "") + (wrong ? " " + t.wrongProgram(r.program) : ""));
+      setDlg(false);
+    } catch (err: any) { setMsg(String(err?.message || err)); }
+  };
+  const openJson = async (f: File) => {
+    try { const d = JSON.parse(await f.text()); if (Array.isArray(d.comps)) { loadDoc2({ name: d.name || f.name, comps: d.comps, tubes: d.tubes || [] }); setDlg(false); } } catch (err: any) { setMsg(String(err?.message || err)); }
+  };
+  const saveJson = async () => {
+    if (!saver) return;
+    await saver.saveJson(safeName(name), JSON.stringify({ app: "simu-web", domain, name, comps: comps.map(({ part, ...c }) => (FLUID_CATALOG[c.key] ? c : { ...c, part })), tubes }, null, 1));
+  };
+
+  // connected ports
+  const used = new Set(tubes.flatMap((tb) => [tb.a.c + ":" + tb.a.p, tb.b.c + ":" + tb.b.p]));
+  const fluidKind = FLUID_KIND[domain];
+  const selComp = sel?.k === "c" ? comps.find((c) => c.id === sel.id) : undefined;
+  const selTube = sel?.k === "t" ? tubes.find((tb) => tb.id === sel.id) : undefined;
+  const placing = tool.startsWith("place:") ? FLUID_CATALOG[tool.slice(6)] : undefined;
+  const label = (c: FComp) => { const p = partOf(c); return p ? fluidName(p.cls, p.description, lang) : c.key; };
+
+  return (<div className="app" data-app={domain} dir={t.dir} lang={lang}>
+    <div className="bar">
+      <button className="home" onClick={onHome} title={t.home} aria-label={t.home}>⌂</button>
+      <span className="brand" dir="ltr">SIMU Web<small>{domain === "pneu" ? t.pneu : t.hyd}</small></span>
+      <div className="seg" role="group" aria-label="tool">
+        <button className={tool === "select" ? "on" : ""} onClick={() => { setTool("select"); setDraft(null); }}>{t.select}</button>
+        <button className={tool === "tube" ? "on" : ""} onClick={() => { setTool("tube"); setDraft(null); }}>{t.tube}</button>
+      </div>
+      <button onClick={undo} title="Ctrl+Z">{t.undo}</button>
+      <input className="proj" value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} aria-label="name" />
+      <span className="spacer"></span>
+      <div className="seg"><button onClick={() => setZoom((z) => Math.max(0.25, +(z - 0.25).toFixed(2)))} aria-label="zoom out">−</button><button className="mono" title="fit" onClick={() => setFitReq((n) => n + 1)}>{Math.round(zoom * 100)}%</button><button onClick={() => setZoom((z) => Math.min(3, +(z + 0.25).toFixed(2)))} aria-label="zoom in">+</button></div>
+      <button onClick={() => { push(); setComps([]); setTubes([]); setName(t.newName); setSel(null); }}>{t.newDoc}</button>
+      <select aria-label={t.examples} value="" onChange={(e) => { const ex = FLUID_EXAMPLES[domain].find((x) => x.key === e.target.value); if (ex) { const r = importCt(ex.bytes(), (t as any)[ex.key]); loadDoc2(r); } }}>
+        <option value="">{t.examples}…</option>
+        {FLUID_EXAMPLES[domain].map((x) => <option key={x.key} value={x.key}>{(t as any)[x.key]}</option>)}
+      </select>
+      <button className="go" onClick={() => setDlg(true)}>{t.file}</button>
+      <select aria-label={t.lang} value={lang} onChange={(e) => setLang(e.target.value as "en" | "he")}><option value="en">English</option><option value="he">עברית</option></select>
+    </div>
+
+    <div className="main">
+      <div className="drawer">
+        <input className="search" placeholder={t.search} value={query} onInput={(e) => setQuery((e.target as HTMLInputElement).value)} />
+        {palette.map(({ g, items }) => (<div key={g} style={{ display: "contents" }}>
+          <div className="grp">{t.groups[g]}</div>
+          {items.map(({ key, p, label: lb }) => (
+            <button key={key} className={"part" + (tool === "place:" + key ? " on" : "")} title={p.cls + (p.config ? " · " + p.config : "")}
+              onClick={() => { setDraft(null); setTool("place:" + key); setPlaceRot(0); setSel(null); }}>
+              <PartIcon part={p} /><span>{lb}</span></button>))}
+        </div>))}
+      </div>
+
+      <div className="stage" ref={stageRef}>
+        {msg && <div className="warnwrap"><div className="warn info">{msg}</div></div>}
+        <svg className="sheet fluid" ref={svgRef} width={SHEET_W * PX * zoom} height={SHEET_H * PX * zoom} viewBox={`0 0 ${SHEET_W} ${SHEET_H}`}
+          onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={() => setCursor(null)} onContextMenu={(e) => { e.preventDefault(); setDraft(null); }}
+          style={{ cursor: tool === "select" && !draft ? "default" : "crosshair" }}>
+          <defs><pattern id="fdots" width={4 * MM} height={4 * MM} patternUnits="userSpaceOnUse"><circle cx="0" cy="0" r={420} fill="var(--grid)" /></pattern></defs>
+          <rect width={SHEET_W} height={SHEET_H} fill="url(#fdots)" />
+          <rect x={5 * MM} y={5 * MM} width={SHEET_W - 10 * MM} height={SHEET_H - 10 * MM} fill="none" stroke="var(--grid)" strokeWidth={400} />
+
+          {tubes.map((tb) => {
+            const a = portPos(comps, tb.a), b = portPos(comps, tb.b);
+            if (!a || !b) return null;
+            const pts = routeTube(a, tb.pts, b).map((p) => p.join(",")).join(" ");
+            const isSel = sel?.k === "t" && sel.id === tb.id;
+            const wire = kindOf(tb.a) !== fluidKind; // electrical wires inside FluidSIM files
+            return (<g key={tb.id} data-tid={tb.id}>
+              <polyline points={pts} fill="none" stroke="transparent" strokeWidth={2600} />
+              {isSel && <polyline points={pts} fill="none" stroke="var(--sel)" strokeWidth={1800} opacity=".35" strokeLinejoin="round" />}
+              <polyline points={pts} fill="none" stroke={wire ? "var(--ink)" : "var(--tube)"} strokeWidth={wire ? 260 : 420} strokeLinejoin="round" />
+            </g>);
+          })}
+          {draft && cursor && (() => {
+            const a = portPos(comps, draft.a);
+            if (!a) return null;
+            const pts = routeTube(a, draft.pts, [snap(cursor[0]), snap(cursor[1])]).map((p) => p.join(",")).join(" ");
+            return <polyline points={pts} fill="none" stroke="var(--tube)" strokeWidth={420} strokeDasharray="1500 900" pointerEvents="none" />;
+          })()}
+
+          {comps.map((c) => {
+            const part = partOf(c);
+            if (!part) return null;
+            const [w, h] = rotSize(part, c.rot);
+            const isSel = sel?.k === "c" && sel.id === c.id;
+            return (<g key={c.id} data-cid={c.id} transform={`translate(${c.x},${c.y})`} style={{ cursor: tool === "select" ? "move" : undefined }}>
+              <rect x={-800} y={-800} width={w + 1600} height={h + 1600} fill="transparent" stroke={isSel ? "var(--sel)" : "none"} strokeWidth={300} strokeDasharray="1200 800" rx={800} />
+              <g transform={rotTransform(part, c.rot)}><FluidSymbol part={part} /></g>
+              {c.tag && <text x={w + 1200} y={-600} fontSize={3000} fill="var(--muted)" stroke="none">{c.tag}</text>}
+            </g>);
+          })}
+          {comps.map((c) => portsOf(c).map((p, i) => {
+            const fl = p.kind === fluidKind, on = used.has(c.id + ":" + i);
+            if (!fl && on) return null;
+            return <circle key={c.id + ":" + i} cx={p.ax} cy={p.ay} r={fl ? (on ? 700 : 900) : 600}
+              fill={fl ? (on ? "var(--tube)" : "var(--sheet)") : "none"} stroke={fl ? "var(--tube)" : "var(--muted)"} strokeWidth={fl ? 300 : 200} pointerEvents="none" />;
+          }))}
+          {placing && cursor && (() => {
+            const [w, h] = rotSize(placing, placeRot);
+            return <g transform={`translate(${snap(cursor[0] - w / 2)},${snap(cursor[1] - h / 2)})`} opacity=".45" pointerEvents="none"><g transform={rotTransform(placing, placeRot)}><FluidSymbol part={placing} /></g></g>;
+          })()}
+        </svg>
+      </div>
+
+      <div className="insp">
+        {selComp ? (() => {
+          const p = partOf(selComp)!;
+          return (<>
+            <div className="preview"><svg className="fl big" viewBox={`${-4000} ${-4000} ${p.size[0] + 8000} ${p.size[1] + 8000}`}><FluidSymbol part={p} /></svg></div>
+            <div className="about-name">{label(selComp)}</div>
+            <p className="about mono" dir="ltr">{p.cls}{p.config ? <><br /><span className="hint">{t.config}: {p.config}</span></> : null}</p>
+            <div className="row" style={{ marginBottom: 10 }}><button onClick={rotateSel}>{t.rotate} ↻</button><button onClick={deleteSel}>{t.del}</button></div>
+            <div className="field"><label>{t.ports}</label>
+              <div className="hint">{portsOf(selComp).map((q, i) => ({ q, i })).filter(({ q }) => q.kind === fluidKind).map(({ q, i }, n) => <span key={i} className="chip" style={{ marginInlineEnd: 4 }}>{q.label || n + 1}{used.has(selComp.id + ":" + i) ? "" : " · " + t.openPort}</span>)}</div></div>
+            {Object.keys(p.props).length > 0 && (<div className="field"><label>{t.props}</label>
+              <table className="props"><tbody>{Object.entries(p.props).filter(([k]) => k !== "description").slice(0, 14).map(([k, v]) => <tr key={k}><td className="mono">{k}</td><td className="mono">{String(v).slice(0, 24)}</td></tr>)}</tbody></table></div>)}
+          </>);
+        })() : selTube ? (<>
+          <h3>{t.tubeSel}</h3>
+          <p className="about">{t.from}: {label(comps.find((c) => c.id === selTube.a.c)!)}<br />{t.to}: {label(comps.find((c) => c.id === selTube.b.c)!)}<br />{t.bends}: {selTube.pts.length}</p>
+          <button onClick={deleteSel}>{t.del}</button>
+        </>) : placing ? (<>
+          <div className="preview"><svg className="fl big" viewBox={`${-4000} ${-4000} ${placing.size[0] + 8000} ${placing.size[1] + 8000}`}><FluidSymbol part={placing} /></svg></div>
+          <div className="about-name">{fluidName(placing.cls, placing.description, lang)}</div>
+          <p className="hint">{t.placeHint}</p>
+        </>) : (<p className="hint">{tool === "tube" ? t.tubeHint : t.selHint}</p>)}
+      </div>
+    </div>
+
+    <div className="status">
+      <span><b>{comps.length}</b> {t.parts}</span><span><b>{tubes.length}</b> {t.tubes}</span>
+      <span className="chip">{t.simSoon}</span>
+    </div>
+
+    {dlg && (<div className="modal" onClick={(e) => { if (e.target === e.currentTarget) setDlg(false); }}>
+      <div className="dlg" role="dialog" aria-modal="true">
+        <h2>{t.file}</h2>
+        <p className="note">{t.ctNote}</p>
+        <div className="row">
+          <button className="go" onClick={() => fileRef.current?.click()}>{t.openCt}</button>
+          <button onClick={() => jsonRef.current?.click()}>{t.openJson}</button>
+          {saver && <button onClick={saveJson}>{t.saveJson}</button>}
+          <span className="spacer"></span>
+          <button onClick={() => setDlg(false)}>{t.close}</button>
+        </div>
+        <input ref={fileRef} type="file" accept=".ct" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) openCt(f); e.target.value = ""; }} />
+        <input ref={jsonRef} type="file" accept=".json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) openJson(f); e.target.value = ""; }} />
+      </div>
+    </div>)}
+  </div>);
+}

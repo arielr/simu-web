@@ -54,3 +54,28 @@ describe("FluidSIM catalog", () => {
     expect(Array.from(lzDecompress(d).data)).toEqual([65, 66]);
   });
 });
+
+import { importCt } from "../src/fluid/ctImport";
+import { portPos } from "../src/fluid/model";
+
+describe("FluidSIM import into the editor", () => {
+  const load = (f: string) => importCt(new Uint8Array(readFileSync(join(__dirname, "fixtures/fluidsim", f))));
+  it("pneumatic circuit: parts, ports and tubes", () => {
+    const d = load("cyl-5-2-valve.ct");
+    expect(d.comps.map((c) => c.key.split("|")[0])).toEqual(["CylDGPPAB", "WV_5", "PVS3", "WV_3", "WV_3", "PPE1", "PPE1", "PPE1", "PPE1"]);
+    expect(d.tubes.length).toBe(8);
+    // cylinder ports go to valve ports 4 and 2 (first two ports of the 5/2 valve)
+    expect(d.tubes.slice(0, 2).map((t) => [t.a.c, t.b.c])).toEqual([["f0", "f3"], ["f0", "f3"]]);
+    // the last bend of every tube is straight across from its end port
+    for (const t of d.tubes) {
+      const b = portPos(d.comps, t.b)!, last = t.pts[t.pts.length - 1];
+      expect(Math.min(Math.abs(b[0] - last[0]), Math.abs(b[1] - last[1]))).toBeLessThan(600);
+    }
+  });
+  it("hydraulic circuit: pump, tank and 4/2 valve connected", () => {
+    const d = load("hyd-electro-cylinder.ct");
+    const valve = d.comps.find((c) => c.key.startsWith("HWV_4"))!;
+    expect(d.tubes.filter((t) => t.b.c === valve.id || t.a.c === valve.id).length).toBe(4);
+    expect(d.program).toBe("H");
+  });
+});
