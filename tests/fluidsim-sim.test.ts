@@ -116,3 +116,34 @@ describe("electro-hydraulics: switch → solenoid → valve → cylinder", () =>
     expect(valveOf(load("cyl-valves-2.ct"), "f3").left.kind).toBe("pilot");
   });
 });
+
+describe("valve configurator", () => {
+  it("every box type of every port count is read back by the simulator", async () => {
+    const { buildValve, defaultConfig, BOX_TYPES } = await import("../src/fluid/valveGen");
+    const { valveInfo } = await import("../src/fluid/sim");
+    for (const ways of [2, 3, 4, 5] as const) for (const t of BOX_TYPES[ways]) {
+      const p = buildValve({ ...defaultConfig(ways), boxes: [t.id, BOX_TYPES[ways][0].id], initial: 0 }, false);
+      const v = valveInfo(p)!;
+      const want = t.groups.map((g) => [...g].sort().join("")).sort();
+      const got = v.conn[0].map((g) => g.map((i) => p.ports[i].label).sort().join("")).sort();
+      expect(got, `${ways} ${t.id}`).toEqual(want);
+      expect(v.boxes.length).toBe(2);
+    }
+  });
+  it("reconfiguring keeps tubes on the same ports and actuators follow the settings", async () => {
+    const { buildValve, configOf, portRoles } = await import("../src/fluid/valveGen");
+    const { valveInfo } = await import("../src/fluid/sim");
+    const d = load("cyl-valves-2.ct");
+    const old = d.comps.find((c) => c.id === "f3")!.part!;
+    const cfg = configOf(old);
+    expect(cfg.ways).toBe(5);
+    expect(cfg.boxes).toEqual(["5cross", "5par"]);
+    expect(cfg.left.pilot).toBe(true);
+    const p = buildValve({ ...cfg, boxes: [...cfg.boxes, "5closed"], right: { ...cfg.right, solenoid: true, solLabel: "1Y2", spring: false } }, false);
+    expect(portRoles(p).slice(0, 6)).toEqual(portRoles(old).slice(0, 6)); // b0..b4 + left pilot
+    const v = valveInfo(p)!;
+    expect(v.boxes.length).toBe(3);
+    expect(v.left.kind).toBe("pilot");
+    expect(v.right.kind).toBe("solenoid");
+  });
+});
