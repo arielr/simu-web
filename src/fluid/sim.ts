@@ -201,9 +201,40 @@ const isExhaustPort = (part: FluidPart, i: number) => {
   return p.ex === "EX3" || /^(3|5|R|S|T|R1|R2)$/.test(p.label || "");
 };
 
+/**
+ * Rollers operated by a cylinder: a distance rule (e.g. R_SCHALT) next to a cylinder lists
+ * marks `labelN` at `posN` % of the stroke; a valve whose mechanical port carries the same
+ * label is actuated on that side while the cylinder is at the mark.
+ */
+export function rollerHits(comps: FComp[], ext: Record<string, number>): Set<string> {
+  const parts = comps.map((c) => ({ c, part: partOf(c)! })).filter((x) => x.part);
+  const cyls = parts.filter(({ part }) => roleOf(part).kind === "cyl");
+  const on = new Set<string>();
+  const centre = (c: FComp, p: FluidPart) => [c.x + p.size[0] / 2, c.y + p.size[1] / 2];
+  const active = new Set<string>();
+  for (const { c, part } of parts) {
+    if (!("label0" in part.props) || !cyls.length) continue;
+    const [x, y] = centre(c, part);
+    const cyl = cyls.reduce((a, b) => { const pa = centre(a.c, a.part), pb = centre(b.c, b.part); return Math.hypot(pb[0] - x, pb[1] - y) < Math.hypot(pa[0] - x, pa[1] - y) ? b : a; });
+    const e = (ext[cyl.c.id] ?? 0) * 100;
+    for (let i = 0; `label${i}` in part.props; i++) {
+      const pos = parseFloat(part.props[`pos${i}`] || "0");
+      if (Math.abs(e - pos) <= 2) active.add(part.props[`label${i}`]);
+    }
+  }
+  for (const { c, part } of parts) {
+    const v = valveInfo(part);
+    if (!v) continue;
+    const mid = (v.boxes[0][0] + v.boxes[v.boxes.length - 1][1]) / 2;
+    part.ports.forEach((q) => { if (q.kind === "UMConnection" && q.label && active.has(q.label)) on.add(c.id + ":" + (q.x < mid ? "L" : "R")); });
+  }
+  return on;
+}
+
 export function solveFluid(comps: FComp[], tubes: Tube[], st: SimState): SimResult {
   const parts = comps.map((c) => ({ c, part: partOf(c)! })).filter((x) => x.part);
   const roles = new Map(parts.map(({ c, part }) => [c.id, roleOf(part)]));
+  const rollers = rollerHits(comps, st.ext);
   const used = new Set(tubes.flatMap((t) => [key(t.a.c, t.a.p), key(t.b.c, t.b.p)]));
   const pos: Record<string, number> = {};
   for (const { c } of parts) {
@@ -248,7 +279,7 @@ export function solveFluid(comps: FComp[], tubes: Tube[], st: SimState): SimResu
         const a = s === "L" ? v.left : v.right;
         if (a.kind === "pilot") return a.port !== undefined && pressure.has(netOf.get(key(c.id, a.port))!);
         if (a.kind === "none") return false;
-        return !!st.act[c.id + ":" + s];
+        return !!st.act[c.id + ":" + s] || (a.kind === "mech" && rollers.has(c.id + ":" + s));
       };
       const L = on("L"), R = on("R");
       let p = pos[c.id];

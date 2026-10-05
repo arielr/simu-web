@@ -117,6 +117,8 @@ export interface CtFile {
   classes: string[];
   objects: CtObject[];
   symbols: Record<number, string[]>;
+  /** explicit tube connections `CON <kind> a b` (object indices in file order), when the file has them */
+  cons: [number, number][];
   thumbnail: Uint8Array | null;
   version: string;
 }
@@ -160,6 +162,7 @@ export function readCt(bytes: Uint8Array): CtFile {
   let cur: CtObject | null = null;
   let curSym: number | null = null;
   const gates: [number, number][] = [];
+  const cons: [number, number][] = [];
   const OBJ = /^(\S+) O(\d+) (-?\d+) (-?\d+) (-?\d+) (-?\d+) (-?\d+)((?: -?\d+)*)$/;
   for (const line of lines) {
     if (section === "pre") { if (line.trim() === "END_FSPREVIEW") section = "objects"; continue; }
@@ -174,6 +177,8 @@ export function readCt(bytes: Uint8Array): CtFile {
       }
       const g = /^gate\d+ # (\d+) (\d+)$/.exec(line);
       if (g) { gates.push([+g[1], +g[2]]); continue; }
+      const cn = /^CON \S+ (\d+) (\d+)$/.exec(line);
+      if (cn) { cons.push([+cn[1], +cn[2]]); continue; }
       if (!cur) continue;
       if (line.startsWith("L ")) { const [, a, b, c, d] = line.split(" ").map(Number); cur.lines.push([a, b, c, d]); continue; }
       const s = /^ S (\S+) (\S+) ?(.*)$/.exec(line);
@@ -198,6 +203,7 @@ export function readCt(bytes: Uint8Array): CtFile {
     classes: header.filter((h) => h.startsWith("OBJ ")).map((h) => h.slice(4)),
     objects,
     symbols,
+    cons: cons.filter(([a, b]) => objects[a] && objects[b]).map(([a, b]) => [objects[a].id, objects[b].id] as [number, number]),
     thumbnail,
   };
 }

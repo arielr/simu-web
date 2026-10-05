@@ -62,3 +62,19 @@ describe("FluidSIM simulation", () => {
     expect(ext.c).toBe(1);
   });
 });
+
+describe("FluidSIM file with explicit connections and a distance rule", () => {
+  const d = load("user-noname1.ct");
+  it("tubes come from the CON lines", () => {
+    expect(d.tubes.map((t) => `${t.a.c}.${t.a.p}-${t.b.c}.${t.b.p}`)).toEqual(
+      ["f0.0-f7.0", "f0.1-f7.1", "f3.0-f19.1", "f5.0-f29.1", "f7.3-f39.0", "f7.5-f19.0", "f7.6-f29.0"]);
+  });
+  it("roller valve A1 is operated when the cylinder reaches 100 %", () => {
+    const s = emptySim();
+    s.act["f19:L"] = true; // close the normally-open valve so only the roller pilots the 5/2 valve
+    s.ext.f0 = 0.5;
+    expect(solveFluid(d.comps, d.tubes, s).pos.f29).toBe(1);
+    s.ext.f0 = 1;
+    expect(solveFluid(d.comps, d.tubes, s).pos.f29).toBe(0);
+  });
+});

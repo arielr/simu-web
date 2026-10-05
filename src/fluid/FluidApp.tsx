@@ -347,7 +347,12 @@ export function FluidApp({ domain, onHome }: { domain: FluidDomain; onHome?: () 
             const clickable = !!simRes && (!!(vi && clickAction(part, 0)) || roleOf(part).kind === "shutoff");
             return (<g key={c.id} data-cid={c.id} transform={`translate(${c.x},${c.y})`} style={{ cursor: simRes ? (clickable ? "pointer" : undefined) : tool === "select" ? "move" : undefined }}>
               <rect x={-800} y={-800} width={w + 1600} height={h + 1600} fill="transparent" stroke={isSel ? "var(--sel)" : "none"} strokeWidth={300} strokeDasharray="1200 800" rx={800} />
-              <g transform={rotTransform(part, c.rot)}><g transform={shift ? `translate(${shift},0)` : undefined}><FluidSymbol part={part} ext={sim.ext[c.id] ?? 0} /></g></g>
+              <g transform={rotTransform(part, c.rot)}>
+                <g transform={shift ? `translate(${shift},0)` : undefined}><FluidSymbol part={part} ext={sim.ext[c.id] ?? 0} /></g>
+                {/* the switched valve slides; ports stay put, so pilot/side connections stretch to follow it */}
+                {shift !== 0 && part.ports.map((q, i) => (q.kind === fluidKind && q.y > 1200 && q.y < part.size[1] - 1200 && used.has(c.id + ":" + i))
+                  ? <line key={"st" + i} x1={q.x} y1={q.y} x2={q.x + shift} y2={q.y} stroke="currentColor" strokeWidth={330} /> : null)}
+              </g>
               {clickable && <rect x={-800} y={-800} width={w + 1600} height={h + 1600} fill="color-mix(in srgb,var(--accent) 8%,transparent)" stroke="none" rx={800} pointerEvents="none" />}
               {simRes && roleOf(part).kind === "shutoff" && sim.closed[c.id] && <text x={w + 800} y={h / 2} fontSize={3600} fill="var(--live)" stroke="none">✕</text>}
               {c.tag && <text x={w + 1200} y={-600} fontSize={3000} fill="var(--muted)" stroke="none">{c.tag}</text>}
@@ -357,6 +362,7 @@ export function FluidApp({ domain, onHome }: { domain: FluidDomain; onHome?: () 
             const fl = p.kind === fluidKind, on = used.has(c.id + ":" + i);
             if (!fl && on) return null;
             if (simRes && !fl) return null;
+            if (simRes && !on) { const part = partOf(c)!, q = part.ports[i]; if (q.y > 1200 && q.y < part.size[1] - 1200) return null; }
             return <circle key={c.id + ":" + i} cx={p.ax} cy={p.ay} r={fl ? (on ? 700 : 900) : 600}
               fill={fl ? (on ? "var(--tube)" : "var(--sheet)") : "none"} stroke={fl ? "var(--tube)" : "var(--muted)"} strokeWidth={fl ? 300 : 200} pointerEvents="none" />;
           }))}

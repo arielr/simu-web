@@ -50,7 +50,7 @@ export function importCt(bytes: Uint8Array, name = ""): CtImport {
       ports: ports.map((p) => {
         const [cx, cy] = centre(p);
         const [ux, uy] = unrot(cx - x0, cy - y0);
-        return { kind: p.cls, x: ux, y: uy, label: p.props.description?.value || "", ex: p.props.ex_type?.value || "" };
+        return { kind: p.cls, x: ux, y: uy, label: p.props.description?.value || p.props.label?.value || "", ex: p.props.ex_type?.value || "" };
       }),
       props: Object.fromEntries(Object.entries(o.props).filter(([k]) => !k.endsWith("_FEST") && !k.startsWith("dxf_prim")).map(([k, v]) => [k, v.value])),
     };
@@ -63,6 +63,24 @@ export function importCt(bytes: Uint8Array, name = ""): CtImport {
   // tubes
   const allPorts = comps.flatMap((c) => portsOf(c).map((p, i) => ({ ref: { c: c.id, p: i }, x: p.ax, y: p.ay, kind: p.kind })));
   const tubes: Tube[] = [];
+  if (ct.cons.length) {
+    const pc = (id: number) => { const o = byId.get(id)!; return [(o.box[0] + o.box[2]) >> 1, (o.box[1] + o.box[3]) >> 1] as [number, number]; };
+    for (const [a, b] of ct.cons) {
+      const ra = portOwner.get(a), rb = portOwner.get(b);
+      if (!ra || !rb) continue;
+      const oa = byId.get(a)!, ob = byId.get(b)!;
+      // bends are stored on the port the tube was drawn from
+      let pts: [number, number][] = [];
+      if (oa.lines.length) pts = oa.lines.map(([x, y]) => [oa.box[0] + x, oa.box[1] + y]);
+      else if (ob.lines.length) pts = ob.lines.map(([x, y]) => [ob.box[0] + x, ob.box[1] + y] as [number, number]).reverse();
+      const [sa, sb] = [pc(a), pc(b)];
+      const far = (q: [number, number], r: [number, number]) => Math.abs(q[0] - r[0]) > 600 || Math.abs(q[1] - r[1]) > 600;
+      pts = pts.filter((q) => far(q, sa) && far(q, sb));
+      tubes.push({ id: "t" + tubes.length, a: ra, b: rb, pts });
+    }
+    const program = /fl_sim_h|FluidSIM-H|HYDRAULIK/i.test(ct.header.join("\n")) ? "H" : /fl_sim_p|FluidSIM-P|PNEUMATIK/i.test(ct.header.join("\n")) ? "P" : "?";
+    return { name, comps, tubes, skipped, program };
+  }
   const seen = new Set<string>();
   for (const o of ct.objects) {
     if (!PORT.test(o.cls) || !o.lines.length) continue;
