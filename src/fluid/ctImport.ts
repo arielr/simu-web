@@ -15,6 +15,17 @@ import { portsOf } from "./model";
 const PORT = /Connection$|Triconnection$/;
 const SKIP = new Set(["text", "BITMAP", "RTF_TEXT", "GRAPHRECT", "group", "DIAGRAM", "PART_LIST", "DXF", "CAD_RECT", "SLIDER", "GRAPHIO"]);
 
+/**
+ * Tube polyline stored on a port: every `L a b c d` is one segment from (a, b) to
+ * (c + w, d + w), relative to the port box corner, where w is the port box size.
+ */
+export function tubePoints(o: CtObject): [number, number][] {
+  const w = o.box[2] - o.box[0], out: [number, number][] = [];
+  const add = (x: number, y: number) => { const l = out[out.length - 1]; if (!l || l[0] !== x || l[1] !== y) out.push([x, y]); };
+  for (const [a, b, c, d] of o.lines) { add(o.box[0] + a, o.box[1] + b); add(o.box[0] + c + w, o.box[1] + d + w); }
+  return out;
+}
+
 const centre = (o: CtObject): [number, number] => [(o.box[0] + o.box[2]) >> 1, (o.box[1] + o.box[3]) >> 1];
 
 export interface CtImport extends FluidDoc { skipped: Record<string, number>; program: "P" | "H" | "?" }
@@ -71,8 +82,8 @@ export function importCt(bytes: Uint8Array, name = ""): CtImport {
       const oa = byId.get(a)!, ob = byId.get(b)!;
       // bends are stored on the port the tube was drawn from
       let pts: [number, number][] = [];
-      if (oa.lines.length) pts = oa.lines.map(([x, y]) => [oa.box[0] + x, oa.box[1] + y]);
-      else if (ob.lines.length) pts = ob.lines.map(([x, y]) => [ob.box[0] + x, ob.box[1] + y] as [number, number]).reverse();
+      if (oa.lines.length) pts = tubePoints(oa);
+      else if (ob.lines.length) pts = tubePoints(ob).reverse();
       const [sa, sb] = [pc(a), pc(b)];
       const far = (q: [number, number], r: [number, number]) => Math.abs(q[0] - r[0]) > 600 || Math.abs(q[1] - r[1]) > 600;
       pts = pts.filter((q) => far(q, sa) && far(q, sb));
@@ -86,7 +97,7 @@ export function importCt(bytes: Uint8Array, name = ""): CtImport {
     if (!PORT.test(o.cls) || !o.lines.length) continue;
     const from = portOwner.get(o.id);
     if (!from) continue;
-    const pts = o.lines.map(([x, y]) => [o.box[0] + x, o.box[1] + y] as [number, number]);
+    const pts = tubePoints(o);
     const start = allPorts.find((p) => p.ref.c === from.c && p.ref.p === from.p)!;
     const last = pts[pts.length - 1];
     let best: (typeof allPorts)[number] | null = null, bd = Infinity;
@@ -102,7 +113,8 @@ export function importCt(bytes: Uint8Array, name = ""): CtImport {
     if (seen.has(k) || seen.has(k2)) continue;
     seen.add(k);
     // drop the first point when it is the port itself
-    const bends = pts.filter((q, i) => !(i === 0 && Math.abs(q[0] - start.x) < 600 && Math.abs(q[1] - start.y) < 600));
+    const at = (q: [number, number], x: number, y: number) => Math.abs(q[0] - x) < 600 && Math.abs(q[1] - y) < 600;
+    const bends = pts.filter((q) => !at(q, start.x, start.y) && !at(q, best!.x, best!.y));
     tubes.push({ id: "t" + tubes.length, a: from, b: best.ref, pts: bends });
   }
   const program = /fl_sim_h|FluidSIM-H|HYDRAULIK/i.test(ct.header.join("\n")) ? "H" : /fl_sim_p|FluidSIM-P|PNEUMATIK/i.test(ct.header.join("\n")) ? "P" : "?";

@@ -78,3 +78,22 @@ describe("FluidSIM file with explicit connections and a distance rule", () => {
     expect(solveFluid(d.comps, d.tubes, s).pos.f29).toBe(0);
   });
 });
+
+describe("tube geometry", () => {
+  it("every tube is a chain of horizontal/vertical segments ending exactly on its ports", async () => {
+    const { portPos, routeTube } = await import("../src/fluid/model");
+    for (const f of ["user-noname1.ct", "cyl-5-2-valve.ct", "cyl-valves-2.ct", "hyd-electro-cylinder.ct"]) {
+      const d = load(f);
+      for (const t of d.tubes) {
+        const a = portPos(d.comps, t.a)!, b = portPos(d.comps, t.b)!;
+        // the stored bends already make the route orthogonal: no elbow has to be invented
+        const all = [a, ...t.pts, b];
+        for (let i = 1; i < all.length; i++) {
+          const ok = Math.abs(all[i][0] - all[i - 1][0]) < 600 || Math.abs(all[i][1] - all[i - 1][1]) < 600;
+          expect(ok, `${f} ${t.id} segment ${i}`).toBe(true);
+        }
+        expect(routeTube(a, t.pts, b).length).toBeGreaterThan(1);
+      }
+    }
+  });
+});
