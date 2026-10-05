@@ -12,7 +12,7 @@ import { FLUID_CATALOG, FluidPart } from "./catalog";
 import type { FComp, FluidDoc, Tube } from "./model";
 import { portsOf } from "./model";
 
-const PORT = /Connection$|Triconnection$/;
+const PORT = /Connection$/; // junctions (…Triconnection) are components with three ports
 const SKIP = new Set(["text", "BITMAP", "RTF_TEXT", "GRAPHRECT", "group", "DIAGRAM", "PART_LIST", "DXF", "CAD_RECT", "SLIDER", "GRAPHIO"]);
 
 /**

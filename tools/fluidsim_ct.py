@@ -17,8 +17,10 @@ def dec_line(l):
 
 def lz_decompress(d):
     w0, w1, hl, D, maxfill, bits = struct.unpack_from('<6H', d, 0)
+    v3 = w1 != 0   # FluidSIM 3 layout: type, window, maxfill, ? (8 bytes)
+    if v3: D, maxfill, hl = w1, hl, 8; bits = D.bit_length() - 1
     W = bytearray(0x1000); pre = b'PREVIEW'; W[:len(pre)] = pre; wpos = len(pre)
-    out = bytearray(); p = hl
+    out = bytearray(pre if v3 else b''); p = hl
     while p < len(d):
         b = d[p]
         if b & 0x80:

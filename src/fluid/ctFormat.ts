@@ -46,12 +46,17 @@ export function decodeLine(line: Uint8Array): string {
 
 export function lzDecompress(d: Uint8Array): { data: Uint8Array; windowSize: number; bits: number } {
   const u16 = (o: number) => d[o] | (d[o + 1] << 8);
-  const hl = u16(4), D = u16(6), maxFill = u16(8), bits = u16(10);
+  // Two header layouts are in use:
+  //   FluidSIM 4: type=1, 0, headerLength=14, window, maxFill, offsetBits, key
+  //   FluidSIM 3: type=1, window, maxFill, ?   (8 bytes; offset bits = log2(window);
+  //               the stream does not repeat the preloaded "PREVIEW")
+  const v3 = u16(2) !== 0;
+  const hl = v3 ? 8 : u16(4), D = v3 ? u16(2) : u16(6), maxFill = v3 ? u16(4) : u16(8), bits = v3 ? Math.round(Math.log2(D)) : u16(10);
   const W = new Uint8Array(0x1000);
   const pre = "PREVIEW";
   for (let i = 0; i < pre.length; i++) W[i] = pre.charCodeAt(i);
   let wpos = pre.length;
-  const out: number[] = [];
+  const out: number[] = v3 ? Array.from(pre, (c) => c.charCodeAt(0)) : [];
   let p = hl;
   while (p < d.length) {
     const b = d[p];
@@ -165,7 +170,13 @@ export function readCt(bytes: Uint8Array): CtFile {
   const cons: [number, number][] = [];
   const OBJ = /^(\S+) O(\d+) (-?\d+) (-?\d+) (-?\d+) (-?\d+) (-?\d+)((?: -?\d+)*)$/;
   for (const line of lines) {
-    if (section === "pre") { if (line.trim() === "END_FSPREVIEW") section = "objects"; continue; }
+    if (section === "pre") {
+      // files saved with a vector preview end it with END_FSPREVIEW; files without one
+      // (e.g. created by FluidSIM 3) just have an "ENDPREVIEW" marker before the objects
+      if (/END_?FS?PREVIEW\s*$/.test(line)) section = "objects";
+      else if (OBJ.test(line)) { section = "objects"; } else continue;
+      if (section === "objects" && !OBJ.test(line)) continue;
+    }
     if (section === "objects") {
       if (line === "ENDCT") { section = "done"; continue; }
       const m = OBJ.exec(line);

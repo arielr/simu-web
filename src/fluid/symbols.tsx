@@ -159,15 +159,79 @@ export function cylinderParts(part: FluidPart, ext = 0): ReactNode[] | null {
 /** builtin drawings made for a vertical part; FluidSIM stores these classes horizontally */
 const VERTICAL = new Set(["drossel", "absperr", "drorueck", "srv", "rsvfed", "SemiRotaryMotorH"]);
 
+/* ---- electrical elements (FluidSIM draws them in code); drawn by their ports ---- */
+export interface EState { closed?: boolean; on?: boolean }
+const ON = "var(--accent)";
+function electrical(part: FluidPart, st: EState): ReactNode[] | null {
+  const c = part.cls, [w, h] = part.size;
+  const ep = part.ports.filter((q) => q.kind === "EConnection");
+  const label = part.props.label || "";
+  const txt = (x: number, y: number, t: string, k: string, anchor: "start" | "middle" = "start", size = 3600) =>
+    <text key={k} x={x} y={y} fontSize={size} stroke="none" fill="currentColor" textAnchor={anchor} dominantBaseline="middle">{t}</text>;
+  if (/Triconnection$/.test(c)) return [<circle key="j" cx={w / 2} cy={h / 2} r={1300} fill="currentColor" stroke="none" />];
+  if (c === "pol1" || c === "pol2") {
+    const q = ep[0] || { x: w, y: h / 2 };
+    return [<circle key="c" cx={4000} cy={q.y} r={1600} fill="none" />, L(5600, q.y, q.x, q.y, "l"), txt(0, q.y - 4600, c === "pol2" ? "+24V" : "0V", "t")];
+  }
+  if (ep.length < 2) return null;
+  const [a, b] = ep;
+  const coil = (fill?: string) => {
+    const x = a.x, y0 = h / 2 - 4300, y1 = h / 2 + 4300;
+    return [L(x, a.y, x, y0, "l1"), L(x, y1, x, b.y, "l2"),
+      <rect key="r" x={x - 6000} y={y0} width={12000} height={y1 - y0} fill={st.on ? ON : fill || "none"} fillOpacity={st.on ? 0.35 : 1} />];
+  };
+  if (/^E_S0\d\d$/.test(c) || /schliesser|schalter|oeffner/i.test(c)) {
+    // vertical contact between a (top) and b (bottom); vertical ports, else horizontal
+    const nc = c === "E_S002" || c === "E_S012";
+    const vertical = Math.abs(a.x - b.x) < 1200;
+    const btn = /^E_S01|^E_S03/.test(c) || /schalter/i.test(c);
+    if (!vertical) { // ports on one side (E_S031): a horizontal contact with a push button above
+      const y = Math.max(a.y, b.y) + 7000, xa = a.x + 5000, xb = b.x - 5000;
+      return [L(a.x, a.y, a.x, y, "a"), L(b.x, b.y, b.x, y, "b"), L(a.x, y, xa, y, "a2"), L(xb, y, b.x, y, "b2"),
+        st.closed ? L(xa, y, xb, y, "k", false) : L(xa, y, xb - 1500, y - 4500, "k"),
+        L((xa + xb) / 2, y - 2400, (xa + xb) / 2, y - 8500, "pb", true), L((xa + xb) / 2 - 3000, y - 8500, (xa + xb) / 2 + 3000, y - 8500, "pb2")];
+    }
+    const x = a.x, yt = h * 0.33, yb = h * 0.67;
+    const blade = st.closed ? L(x, yb, x + (nc ? 2600 : 0), yt, "k") : L(x, yb, x - 5200, yt + 1200, "k");
+    const out: ReactNode[] = [L(x, a.y, x, yt, "t"), L(x, yb, x, b.y, "b"), blade];
+    if (nc) out.push(L(x, yt, x + 2600, yt, "h"));
+    if (btn) out.push(L(x - 2600, (yt + yb) / 2, x - 9000, (yt + yb) / 2, "pb", true), L(x - 9000, (yt + yb) / 2 - 3000, x - 9000, (yt + yb) / 2 + 3000, "pb2"));
+    if (part.props.SWITCH_TYPE === "1") out.push(<circle key="rl" cx={x - 7000} cy={(yt + yb) / 2} r={1500} fill="none" />);
+    return out;
+  }
+  if (c === "E_K001") return [...coil(), txt(a.x + 7500, h / 2, label, "t")];
+  if (c === "E_K008") return [...coil(), <rect key="tm" x={a.x - 6000} y={h / 2 - 4300} width={4000} height={8600} fill="currentColor" stroke="none" />, txt(a.x + 7500, h / 2, label, "t")];
+  if (c === "E_Y001" || c === "magnet") return [...coil(), L(a.x - 6000, h / 2 + 4300, a.x + 6000, h / 2 - 4300, "d"), txt(a.x + 7500, h / 2, label, "t")];
+  if (c === "E_P010") {
+    const r1 = ep.find((q) => q.label === "R1"), r2 = ep.find((q) => q.label === "R2");
+    const out = [...coil(), txt(a.x, h / 2, "Σ", "s", "middle", 4200), txt(a.x + 7500, h / 2 - 5600, label + (part.props.N ? " N=" + part.props.N : ""), "t", "start", 3000)];
+    if (r1 && r2) out.push(L(r1.x, r1.y, r1.x, h / 2 - 4300, "r1"), L(r2.x, h / 2 + 4300, r2.x, r2.y, "r2"), <rect key="rr" x={r1.x - 3000} y={h / 2 - 4300} width={6000} height={8600} fill="none" />, txt(r1.x, h / 2, "R", "rt", "middle", 3000));
+    return out;
+  }
+  if (c === "lampe") {
+    const x = a.x, r = 4300, cy = h / 2;
+    return [L(x, a.y, x, cy - r, "l1"), L(x, cy + r, x, b.y, "l2"),
+      <circle key="c" cx={x} cy={cy} r={r} fill={st.on ? "#ffd84a" : "none"} />,
+      L(x - r * 0.7, cy - r * 0.7, x + r * 0.7, cy + r * 0.7, "x1"), L(x - r * 0.7, cy + r * 0.7, x + r * 0.7, cy - r * 0.7, "x2")];
+  }
+  if (c === "hupe") {
+    const x = a.x, cy = h / 2;
+    return [L(x, a.y, x, cy - 4300, "l1"), L(x, cy + 4300, x, b.y, "l2"), <path key="h" d={`M${x} ${cy - 4300} A4300 4300 0 0 1 ${x} ${cy + 4300} Z`} fill={st.on ? ON : "none"} fillOpacity={st.on ? 0.5 : 1} />];
+  }
+  return null;
+}
+
 export function hasBuiltin(cls: string) { return !!BUILTIN[cls]; }
 
 /** the symbol of a part, unrotated, in its own coordinates */
-export function FluidSymbol({ part, label, ext = 0 }: { part: FluidPart; label?: string; ext?: number }) {
+export function FluidSymbol({ part, label, ext = 0, st = {} }: { part: FluidPart; label?: string; ext?: number; st?: EState }) {
   const [w, h] = part.size;
   const b = BUILTIN[part.cls];
   let body: ReactNode;
   const own = part.sym.length > 0;
-  if (own) body = [...part.sym.map(prim), ...(cylinderParts(part, ext) || [])];
+  const el = !own ? electrical(part, st) : null;
+  if (el) body = el;
+  else if (own) body = [...part.sym.map(prim), ...(cylinderParts(part, ext) || [])];
   else if (b && VERTICAL.has(part.cls) && w > h) body = <g transform={`translate(0,${h}) rotate(-90)`}>{b(h, w)}</g>;
   else if (b) body = b(w, h);
   else body = [<rect key="r" x={0} y={0} width={w} height={h} fill="none" strokeDasharray="1200 900" />,

@@ -97,3 +97,22 @@ describe("tube geometry", () => {
     }
   });
 });
+
+describe("electro-hydraulics: switch → solenoid → valve → cylinder", () => {
+  it("closing the switch energises the solenoid and lamp and reverses the cylinder", async () => {
+    const { Runner } = await import("../src/fluid/run");
+    const d = load("hyd-electro-cylinder.ct");
+    const r = new Runner(d.comps, d.tubes).run(2);
+    expect(r.sim.ext.f13).toBe(1);                 // extends at rest
+    const sw = d.comps.find((c) => c.part!.cls === "schalter_schliesser")!;
+    expect(r.last!.el.latching.has(sw.id)).toBe(true);
+    r.toggle(sw.id).run(2);
+    expect([...r.last!.el.on].map((id) => d.comps.find((c) => c.id === id)!.part!.cls).sort()).toEqual(["lampe", "magnet"]);
+    expect(r.last!.el.solenoids.has("f20:L")).toBe(true);
+    expect(r.sim.ext.f13).toBe(0);                 // solenoid switched the valve: retracted
+  });
+  it("PE1 actuation is a solenoid, PE2 a pilot", () => {
+    expect(valveOf(load("hyd-electro-cylinder.ct"), "f20").left.kind).toBe("solenoid");
+    expect(valveOf(load("cyl-valves-2.ct"), "f3").left.kind).toBe("pilot");
+  });
+});

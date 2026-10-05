@@ -2,7 +2,7 @@
 export const FS = {
   en: {
     tube: "Tube", newName: "New circuit",
-    groups: { actuator: "Actuators", supply: "Supply & air/oil treatment", valve: "Valves", vgroup: "Valve groups", sensor: "Measuring & sensors", other: "Other (from example circuits)" } as Record<string, string>,
+    groups: { actuator: "Actuators", supply: "Supply & air/oil treatment", valve: "Valves", vgroup: "Valve groups", sensor: "Measuring & sensors", electric: "Electrical control", other: "Other (from example circuits)" } as Record<string, string>,
     placeHint: "Click on the sheet to place it. R rotates, Esc cancels.",
     tubeHint: "Click a port, add bends by clicking the sheet, then click another port. Esc cancels.",
     selHint: "Drag parts to move them. Drag from a port to draw a tube. R rotates, Del deletes, Ctrl+Z undoes.",
@@ -21,7 +21,7 @@ export const FS = {
   },
   he: {
     tube: "צינור", newName: "מעגל חדש",
-    groups: { actuator: "מפעילים", supply: "אספקה וטיפול באוויר/שמן", valve: "שסתומים", vgroup: "קבוצות שסתומים", sensor: "מדידה וחיישנים", other: "אחר (ממעגלי הדוגמה)" } as Record<string, string>,
+    groups: { actuator: "מפעילים", supply: "אספקה וטיפול באוויר/שמן", valve: "שסתומים", vgroup: "קבוצות שסתומים", sensor: "מדידה וחיישנים", electric: "פיקוד חשמלי", other: "אחר (ממעגלי הדוגמה)" } as Record<string, string>,
     placeHint: "לחץ על הדף כדי למקם. R מסובב, Esc מבטל.",
     tubeHint: "לחץ על יציאה, הוסף כיפופים בלחיצה על הדף, ואז לחץ על יציאה אחרת. Esc מבטל.",
     selHint: "גרור רכיבים כדי להזיז. גרור מיציאה כדי למתוח צינור. R מסובב, Del מוחק, Ctrl+Z מבטל.",

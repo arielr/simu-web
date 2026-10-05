@@ -26,8 +26,9 @@ def parse(path):
     objs = []; byid = {}; sym = {}; gates = []; sec = 'pre'; cur = None; cs = None
     for line in txt.split('\n'):
         if sec == 'pre':
-            if line.strip() == 'END_FSPREVIEW': sec = 'obj'
-            continue
+            if re.search(r'END_?FS?PREVIEW\s*$', line): sec = 'obj'; continue
+            if not OBJ.match(line): continue
+            sec = 'obj'
         if sec == 'obj':
             if line == 'ENDCT': sec = 'done'; continue
             m = OBJ.match(line)

@@ -108,7 +108,12 @@ function analyse(part: FluidPart): ValveInfo | null {
     const none = (v?: string) => !v || /^A[LR]N$/.test(v);
     const xa = boxes[0][0], xb = boxes[boxes.length - 1][1];
     const pilot = part.ports.findIndex((p) => fluid(p.kind) && !body.some((b) => b.i === part.ports.indexOf(p)) && (s === "L" ? p.x <= xa - 4000 + 4000 && p.x < xa : p.x > xb) && !near(p.y, 0, 1200) && !near(p.y, H, 1200));
-    if (!none(pr[`ACTUATION_${s}_EL_PN`])) return pilot >= 0 ? { kind: "pilot", port: pilot } : { kind: "solenoid" };
+    const elpn = pr[`ACTUATION_${s}_EL_PN`];
+    // ..._PE1 = solenoid, ..._PE2 = pneumatic/hydraulic pilot (the side air port exists in both cases)
+    if (!none(elpn)) {
+      if (/PE1/.test(elpn)) return { kind: "solenoid" };
+      return pilot >= 0 ? { kind: "pilot", port: pilot } : { kind: "solenoid" };
+    }
     if (!none(pr[`ACTUATION_${s}_MA`])) return { kind: "manual" };
     if (!none(pr[`ACTUATION_${s}_ME`])) return { kind: "mech" };
     return { kind: "none" };
@@ -133,6 +138,7 @@ export type Role =
   | { kind: "pass"; ports: number[] }      // inline parts: throttles, check valves, filters …
   | { kind: "shutoff"; ports: number[] }   // hand valve, open by default
   | { kind: "logic"; op: "and" | "or"; ins: [number, number]; out: number } // two-pressure (AND) / shuttle (OR) valve
+  | { kind: "junction"; ports: number[] }  // tube T-piece
   | { kind: "none" };
 
 const PASS = /Throttle|Orifice|Nozzle|CheckValve|^DV_P|drossel|drorueck|DRSV|rsvfed|PressureReducing|^srv|FlowControl|Filter|FILTER|Lubric|Cooler|Heater|Drain|AdDryer|^PPE2|^PRV|Flowmeter|FlowSense|PressureCompensator|Cartridge/;
@@ -141,6 +147,7 @@ const SOURCE1 = new Set(["PPE1", "152841", "Ag1"]);
 export function roleOf(part: FluidPart): Role {
   const fl = part.ports.map((p, i) => ({ ...p, i })).filter((p) => p.kind === "PConnection" || p.kind === "HConnection");
   const c = part.cls;
+  if (/^[PH]Triconnection$/.test(c)) return { kind: "junction", ports: fl.map((p) => p.i) };
   if (SOURCE1.has(c) && fl.length) return { kind: "source", out: fl[0].i };
   if (c === "Ag2" && fl.length) return { kind: "source", out: fl[0].i };
   if (/^(CompressorFixed|CompressorVariable|DisplacementPump)/.test(c) && fl.length) {
@@ -206,7 +213,7 @@ const isExhaustPort = (part: FluidPart, i: number) => {
  * marks `labelN` at `posN` % of the stroke; a valve whose mechanical port carries the same
  * label is actuated on that side while the cylinder is at the mark.
  */
-export function rollerHits(comps: FComp[], ext: Record<string, number>): Set<string> {
+export function activeMarks(comps: FComp[], ext: Record<string, number>): Set<string> {
   const parts = comps.map((c) => ({ c, part: partOf(c)! })).filter((x) => x.part);
   const cyls = parts.filter(({ part }) => roleOf(part).kind === "cyl");
   const on = new Set<string>();
@@ -219,9 +226,16 @@ export function rollerHits(comps: FComp[], ext: Record<string, number>): Set<str
     const e = (ext[cyl.c.id] ?? 0) * 100;
     for (let i = 0; `label${i}` in part.props; i++) {
       const pos = parseFloat(part.props[`pos${i}`] || "0");
-      if (Math.abs(e - pos) <= 2) active.add(part.props[`label${i}`]);
+      if (Math.abs(e - pos) <= 2.5) active.add(part.props[`label${i}`]);
     }
   }
+  return active;
+}
+
+export function rollerHits(comps: FComp[], ext: Record<string, number>): Set<string> {
+  const parts = comps.map((c) => ({ c, part: partOf(c)! })).filter((x) => x.part);
+  const on = new Set<string>();
+  const active = activeMarks(comps, ext);
   for (const { c, part } of parts) {
     const v = valveInfo(part);
     if (!v) continue;
@@ -231,7 +245,7 @@ export function rollerHits(comps: FComp[], ext: Record<string, number>): Set<str
   return on;
 }
 
-export function solveFluid(comps: FComp[], tubes: Tube[], st: SimState): SimResult {
+export function solveFluid(comps: FComp[], tubes: Tube[], st: SimState, solenoids: Set<string> = new Set()): SimResult {
   const parts = comps.map((c) => ({ c, part: partOf(c)! })).filter((x) => x.part);
   const roles = new Map(parts.map(({ c, part }) => [c.id, roleOf(part)]));
   const rollers = rollerHits(comps, st.ext);
@@ -254,6 +268,7 @@ export function solveFluid(comps: FComp[], tubes: Tube[], st: SimState): SimResu
     for (const { c } of parts) {
       const r = roles.get(c.id)!;
       if (r.kind === "pass") u(key(c.id, r.ports[0]), key(c.id, r.ports[1]));
+      if (r.kind === "junction") for (let k = 1; k < r.ports.length; k++) u(key(c.id, r.ports[0]), key(c.id, r.ports[k]));
       if (r.kind === "shutoff" && !st.closed[c.id] && r.ports.length === 2) u(key(c.id, r.ports[0]), key(c.id, r.ports[1]));
       if (r.kind === "valve") for (const g of r.v.conn[pos[c.id]] || []) for (let k = 1; k < g.length; k++) u(key(c.id, g[0]), key(c.id, g[k]));
       if (r.kind === "logic") u(key(c.id, r.out), key(c.id, r.ins[pick[c.id] ?? 0]));
@@ -279,7 +294,7 @@ export function solveFluid(comps: FComp[], tubes: Tube[], st: SimState): SimResu
         const a = s === "L" ? v.left : v.right;
         if (a.kind === "pilot") return a.port !== undefined && pressure.has(netOf.get(key(c.id, a.port))!);
         if (a.kind === "none") return false;
-        return !!st.act[c.id + ":" + s] || (a.kind === "mech" && rollers.has(c.id + ":" + s));
+        return !!st.act[c.id + ":" + s] || (a.kind === "mech" && rollers.has(c.id + ":" + s)) || (a.kind === "solenoid" && solenoids.has(c.id + ":" + s));
       };
       const L = on("L"), R = on("R");
       let p = pos[c.id];

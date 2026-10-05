@@ -9,7 +9,8 @@ import { FluidSymbol } from "./symbols";
 import { fluidName } from "./names";
 import { FS } from "./strings";
 import { importCt } from "./ctImport";
-import { solveFluid, stepCylinders, emptySim, clickAction, roleOf, valveInfo, SimState } from "./sim";
+import { solveFluid, stepCylinders, emptySim, clickAction, roleOf, valveInfo, activeMarks, SimState } from "./sim";
+import { solveElectric, stepElectric, emptyElec, eKind, ElecState } from "./elec";
 import { FLUID_EXAMPLES } from "../examples/fluid";
 import {
   FComp, FluidDoc, FluidDomain, PortRef, Tube, FLUID_KIND, MM, SNAP, PORT_R,
@@ -31,11 +32,12 @@ function extent(comps: FComp[]): [number, number, number, number] | null {
   }
   return x0 < Infinity ? [x0, y0, x1, y1] : null;
 }
-const GROUPS = ["actuator", "valve", "vgroup", "supply", "sensor", "other"];
+const GROUPS = ["actuator", "valve", "vgroup", "supply", "sensor", "electric", "other"];
 const storeKey = (d: FluidDomain) => "simu-web-fluid-" + d;
 const snap = (v: number) => Math.round(v / SNAP) * SNAP;
 
 function groupOf(p: FluidPart): string {
+  if (p.ports.length && p.ports.every((q) => q.kind === "EConnection") && eKind(p).k !== "none") return "electric";
   if (p.domain.endsWith("-example")) return "other";
   const seg = (p.files[0] || "").split(":")[1]?.split("/")[1] || "";
   return GROUPS.includes(seg) ? seg : "other";
@@ -80,6 +82,8 @@ export function FluidApp({ domain, onHome }: { domain: FluidDomain; onHome?: () 
   const [mode, setMode] = useState<"edit" | "sim">("edit");
   const [sim, setSim] = useState<SimState>(emptySim);
   const held = useRef<string | null>(null);
+  const [elecSt, setElecSt] = useState<ElecState>(emptyElec);
+  const [now, setNow] = useState(() => Date.now());
 
   const title = c0.programs[domain === "pneu" ? "pneumatic" : "hydraulic"];
   const doc = useMemo(() => ({ name, comps, tubes }), [name, comps, tubes]);
@@ -90,7 +94,7 @@ export function FluidApp({ domain, onHome }: { domain: FluidDomain; onHome?: () 
     const kind = FLUID_KIND[domain];
     const q = query.trim().toLowerCase();
     const items = Object.entries(FLUID_CATALOG)
-      .filter(([, p]) => isFluidPart(p, domain) && p.ports.some((x) => x.kind === kind))
+      .filter(([, p]) => isFluidPart(p, domain) && (p.ports.some((x) => x.kind === kind) || groupOf(p) === "electric"))
       .map(([key, p]) => ({ key, p, label: fluidName(p.cls, p.description, lang), g: groupOf(p) }))
       .filter((x) => matches(q, x.label, x.p.cls));
     return GROUPS.map((g) => ({
@@ -115,7 +119,10 @@ export function FluidApp({ domain, onHome }: { domain: FluidDomain; onHome?: () 
   }, [fitReq]);
 
   /* ---- simulation ---- */
-  const simRes = useMemo(() => (mode === "sim" ? solveFluid(comps, tubes, sim) : null), [mode, comps, tubes, sim]);
+  useEffect(() => { if (mode !== "sim") return; const i = setInterval(() => setNow(Date.now()), 100); return () => clearInterval(i); }, [mode]);
+  const elRes = useMemo(() => (mode === "sim" ? solveElectric(comps, tubes, sim.act, activeMarks(comps, sim.ext), elecSt, now) : null), [mode, comps, tubes, sim, elecSt, now]);
+  useEffect(() => { if (elRes) { const n = stepElectric(comps, elRes, elecSt, now); if (n !== elecSt) setElecSt(n); } }, [elRes]);
+  const simRes = useMemo(() => (mode === "sim" && elRes ? solveFluid(comps, tubes, sim, elRes.solenoids) : null), [mode, comps, tubes, sim, elRes]);
   useEffect(() => { // keep valve positions (memory valves stay where they were switched)
     if (!simRes) return;
     if (Object.entries(simRes.pos).some(([k, v]) => sim.pos[k] !== v)) setSim((s) => ({ ...s, pos: { ...s.pos, ...simRes.pos } }));
@@ -131,7 +138,7 @@ export function FluidApp({ domain, onHome }: { domain: FluidDomain; onHome?: () 
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [simRes && JSON.stringify(simRes.dir)]);
-  const toMode = (m: "edit" | "sim") => { setMode(m); setSim(emptySim()); setDraft(null); setTool("select"); setSel(null); };
+  const toMode = (m: "edit" | "sim") => { setMode(m); setSim(emptySim()); setElecSt(emptyElec()); setDraft(null); setTool("select"); setSel(null); };
   useEffect(() => { // release push buttons wherever the pointer goes up
     const up = () => { const h = held.current; if (h) { held.current = null; setSim((s) => ({ ...s, act: { ...s.act, [h]: false } })); } };
     window.addEventListener("pointerup", up);
@@ -140,6 +147,11 @@ export function FluidApp({ domain, onHome }: { domain: FluidDomain; onHome?: () 
   const simClick = (c: FComp, x: number, y: number, latch = false) => {
     const part = partOf(c); if (!part) return;
     const r = roleOf(part);
+    if (elRes?.manual.has(c.id)) {
+      if (latch || elRes.latching.has(c.id)) setSim((s) => ({ ...s, act: { ...s.act, [c.id]: !s.act[c.id] } }));
+      else { held.current = c.id; setSim((s) => ({ ...s, act: { ...s.act, [c.id]: true } })); }
+      return;
+    }
     if (r.kind === "shutoff") { setSim((s) => ({ ...s, closed: { ...s.closed, [c.id]: !s.closed[c.id] } })); return; }
     const [ux] = unrotPt(part, c.rot, x - c.x, y - c.y);
     const a = clickAction(part, ux);
@@ -327,7 +339,7 @@ export function FluidApp({ domain, onHome }: { domain: FluidDomain; onHome?: () 
             return (<g key={tb.id} data-tid={tb.id}>
               <polyline points={pts} fill="none" stroke="transparent" strokeWidth={2600} />
               {isSel && <polyline points={pts} fill="none" stroke="var(--sel)" strokeWidth={1800} opacity=".35" strokeLinejoin="round" />}
-              <polyline points={pts} fill="none" stroke={wire ? "var(--ink)" : simRes && !pressed ? "var(--tube-off)" : "var(--tube)"} strokeWidth={wire ? 260 : pressed ? 760 : 420} strokeLinejoin="round" />
+              <polyline points={pts} fill="none" stroke={wire ? (elRes ? (elRes.plus.has(elRes.netOf.get(tb.a.c + ":" + tb.a.p)!) ? "var(--live)" : elRes.minus.has(elRes.netOf.get(tb.a.c + ":" + tb.a.p)!) ? "var(--neu)" : "var(--ink)") : "var(--ink)") : simRes && !pressed ? "var(--tube-off)" : "var(--tube)"} strokeWidth={wire ? 260 : pressed ? 760 : 420} strokeLinejoin="round" />
             </g>);
           })}
           {draft && cursor && (() => {
@@ -344,11 +356,11 @@ export function FluidApp({ domain, onHome }: { domain: FluidDomain; onHome?: () 
             const isSel = sel?.k === "c" && sel.id === c.id;
             const vi = simRes ? valveInfo(part) : null;
             const shift = vi && simRes!.pos[c.id] !== undefined ? vi.boxes[vi.drawn][0] - vi.boxes[simRes!.pos[c.id]][0] : 0;
-            const clickable = !!simRes && (!!(vi && clickAction(part, 0)) || roleOf(part).kind === "shutoff");
+            const clickable = !!simRes && (!!(vi && clickAction(part, 0)) || roleOf(part).kind === "shutoff" || !!elRes?.manual.has(c.id));
             return (<g key={c.id} data-cid={c.id} transform={`translate(${c.x},${c.y})`} style={{ cursor: simRes ? (clickable ? "pointer" : undefined) : tool === "select" ? "move" : undefined }}>
               <rect x={-800} y={-800} width={w + 1600} height={h + 1600} fill="transparent" stroke={isSel ? "var(--sel)" : "none"} strokeWidth={300} strokeDasharray="1200 800" rx={800} />
               <g transform={rotTransform(part, c.rot)}>
-                <g transform={shift ? `translate(${shift},0)` : undefined}><FluidSymbol part={part} ext={sim.ext[c.id] ?? 0} /></g>
+                <g transform={shift ? `translate(${shift},0)` : undefined}><FluidSymbol part={part} ext={sim.ext[c.id] ?? 0} st={elRes ? { closed: elRes.closed.has(c.id), on: elRes.on.has(c.id) } : eKind(part).k === "contact" && (eKind(part) as any).nc ? { closed: true } : undefined} /></g>
                 {/* the switched valve slides; ports stay put, so pilot/side connections stretch to follow it */}
                 {shift !== 0 && part.ports.map((q, i) => (q.kind === fluidKind && q.y > 1200 && q.y < part.size[1] - 1200 && used.has(c.id + ":" + i))
                   ? <line key={"st" + i} x1={q.x} y1={q.y} x2={q.x + shift} y2={q.y} stroke="currentColor" strokeWidth={330} /> : null)}
@@ -378,6 +390,14 @@ export function FluidApp({ domain, onHome }: { domain: FluidDomain; onHome?: () 
           <h3>{t.simTitle}</h3>
           <p className="hint">{t.simHint}</p>
           <div className="legend"><div><span style={{ background: "var(--tube)", height: 4 }}></span>{t.legP}</div><div><span style={{ background: "var(--tube-off)" }}></span>{t.legNoP}</div></div>
+          {elRes?.short && <div className="warn" style={{ position: "static", margin: "8px 0" }}>{lang === "he" ? "קצר חשמלי!" : "Short circuit!"}</div>}
+          {comps.some((c) => partOf(c) && ["timer", "counter"].includes(eKind(partOf(c)!).k)) && (<>
+            <div className="grp" style={{ marginTop: 14 }}>{lang === "he" ? "טיימרים ומונים" : "Timers & counters"}</div>
+            {comps.filter((c) => partOf(c) && ["timer", "counter"].includes(eKind(partOf(c)!).k)).map((c) => {
+              const k = eKind(partOf(c)!) as any;
+              const v = k.k === "timer" ? (elecSt.tOn[k.label] !== undefined ? `${Math.min(k.delay, (now - elecSt.tOn[k.label]) / 1000).toFixed(1)} / ${k.delay} s` : `0 / ${k.delay} s`) : `${elecSt.count[k.label]?.n ?? 0} / ${k.n}`;
+              return <div key={c.id} className="mono" style={{ fontSize: 12, display: "flex", justifyContent: "space-between" }}><span>{k.label}</span><b>{v}</b></div>;
+            })}</>)}
           <div className="grp" style={{ marginTop: 14 }}>{t.cylinders}</div>
           {comps.filter((c) => partOf(c) && roleOf(partOf(c)!).kind === "cyl").map((c) => {
             const d = simRes.dir[c.id] || 0, e = sim.ext[c.id] ?? 0;
