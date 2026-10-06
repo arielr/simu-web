@@ -62,6 +62,8 @@ export const BOX_TYPES: Record<Ways, BoxType[]> = {
     { id: "3pass", en: "1→2, 3 closed", he: "1→2, 3 סגור", groups: P(["1", "2"]) },
     { id: "3exh", en: "2→3, 1 closed", he: "2→3, 1 סגור", groups: P(["2", "3"]) },
     { id: "3closed", en: "All closed", he: "הכל סגור", groups: P() },
+    { id: "3all", en: "1, 2, 3 joined", he: "1, 2, 3 מחוברים", groups: P(["1", "2", "3"]) },
+    { id: "3short", en: "1→3, 2 closed", he: "1→3, 2 סגור", groups: P(["1", "3"]) },
   ],
   4: [
     { id: "4par", en: "1→4, 2→3", he: "1→4, 2→3", groups: P(["1", "4"], ["2", "3"]) },
@@ -130,6 +132,10 @@ function drawBox(ways: Ways, a: number, type: BoxType): string[] {
       const xs = g.map((n) => pos.get(n)!.x);
       for (const n of g) { const p = pos.get(n)!; out.push(line(p.x, p.y, p.x, MID)); }
       out.push(line(Math.min(...xs), MID, Math.max(...xs), MID));
+      // junction dots where three or more lines meet: an x used by two ports, or one inside the run
+      const lo = Math.min(...xs), hi = Math.max(...xs);
+      for (const jx of new Set(xs)) if (xs.filter((x) => x === jx).length > 1 || (jx > lo && jx < hi))
+        out.push(`5 ${Math.round(jx)} ${MID - 900} ${Math.round(jx + 900)} ${MID} ${Math.round(jx)} ${MID + 900} ${Math.round(jx - 900)} ${MID} 0`);
     }
   }
   for (const [n] of PORTS[ways]) {

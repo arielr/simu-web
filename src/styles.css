@@ -202,3 +202,8 @@ a.card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .nrow2 input{text-align:end;font-family:var(--f-mono)}
 .vfoot .vprev{height:auto;min-height:110px}
 @media (max-width:760px){.vfoot{grid-template-columns:1fr}}
+.isel.big>button{min-width:0;width:100%;padding:3px 4px;min-height:54px}
+.isel.big .ilist{min-width:0;inset-inline-start:0;inset-inline-end:auto;grid-template-columns:1fr}
+.isel.big .ilist button span{display:none}
+.isel.big .ilist button{justify-content:center;padding:4px 10px}
+.isel>button:disabled{opacity:.45}

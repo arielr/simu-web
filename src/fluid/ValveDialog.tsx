@@ -48,8 +48,8 @@ const Icon = ({ part }: { part: FluidPart }) => {
 };
 
 /** a drop-down list whose options are actuator symbols */
-function IconSelect<K extends string>({ value, options, labels, icon, onChange, label }: {
-  value: K; options: K[]; labels: Record<K, string>; icon: (k: K) => FluidPart | null; onChange: (k: K) => void; label: string;
+function IconSelect<K extends string>({ value, options, labels, icon, onChange, label, disabled, big }: {
+  value: K; options: K[]; labels: Record<K, string>; icon: (k: K) => ReactNode; onChange: (k: K) => void; label: string; disabled?: boolean; big?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -59,12 +59,12 @@ function IconSelect<K extends string>({ value, options, labels, icon, onChange, 
     window.addEventListener("pointerdown", close);
     return () => window.removeEventListener("pointerdown", close);
   }, [open]);
-  const ic = (k: K) => { const p = icon(k); return p ? <Icon part={p} /> : <span className="noicon">—</span>; };
-  return (<div className="isel" ref={ref}>
-    <button type="button" aria-haspopup="listbox" aria-expanded={open} aria-label={`${label}: ${labels[value]}`} title={labels[value]}
+  const ic = (k: K) => icon(k) || <span className="noicon">—</span>;
+  return (<div className={"isel" + (big ? " big" : "")} ref={ref}>
+    <button type="button" disabled={disabled} aria-haspopup="listbox" aria-expanded={open} aria-label={`${label}: ${labels[value]}`} title={labels[value]}
       onClick={() => setOpen(!open)} onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}>{ic(value)}<span className="caret">▾</span></button>
     {open && <div className="ilist" role="listbox">{options.map((k) => (
-      <button type="button" role="option" aria-selected={k === value} key={k} className={k === value ? "on" : ""}
+      <button type="button" role="option" aria-selected={k === value} key={k} title={labels[k]} className={k === value ? "on" : ""}
         onClick={() => { onChange(k); setOpen(false); }}>{ic(k)}<span>{labels[k]}</span></button>))}</div>}
   </div>);
 }
@@ -81,16 +81,21 @@ function Side({ s, set, t, right }: { s: SideConfig; set: (s: SideConfig) => voi
     {ck(!!s.pneuSpring, t.pneuSpring, (v) => set({ ...s, pneuSpring: v, spring: v ? true : false }))}
     {ck(!!s.extSpring, t.ext, (v) => set({ ...s, extSpring: v }), !s.pneuSpring, true)}
     {row(t.manual, <IconSelect label={t.manual} value={s.manual} options={MANUALS} labels={t.manuals} onChange={(k) => set({ ...s, manual: k })}
-      icon={(k) => (k === "none" ? null : sidePreview({ manual: k }, right))} />)}
+      icon={(k) => (k === "none" ? null : <Icon part={sidePreview({ manual: k }, right)} />)} />)}
     {row(t.mech, <IconSelect label={t.mech} value={s.mech} options={MECHS} labels={t.mechs} onChange={(k) => set({ ...s, mech: k })}
-      icon={(k) => (k === "none" ? null : sidePreview({ mech: k }, right))} />)}
+      icon={(k) => (k === "none" ? null : <Icon part={sidePreview({ mech: k }, right)} />)} />)}
     {s.mech !== "none" && <label className="sub">{t.label} <input dir="ltr" value={s.mechLabel} onInput={(e) => set({ ...s, mechLabel: (e.target as HTMLInputElement).value.toUpperCase() })} /></label>}
     {row(t.elpn, <IconSelect label={t.elpn} value={elpn} options={ELPNS} labels={t.elpns}
       onChange={(k) => set({ ...s, pilot: k === "pilot", solenoid: k === "solenoid" || k === "solpilot", piloted: k === "solpilot" })}
-      icon={(k) => (k === "none" ? null : sidePreview({ pilot: k === "pilot", solenoid: k === "solenoid" || k === "solpilot", piloted: k === "solpilot" }, right))} />)}
+      icon={(k) => (k === "none" ? null : <Icon part={sidePreview({ pilot: k === "pilot", solenoid: k === "solenoid" || k === "solpilot", piloted: k === "solpilot" }, right)} />)} />)}
     {s.solenoid && <label className="sub">{t.label} <input dir="ltr" value={s.solLabel} onInput={(e) => set({ ...s, solLabel: (e.target as HTMLInputElement).value.toUpperCase() })} /></label>}
   </div>);
 }
+
+const BoxIcon = ({ ways, id }: { ways: Ways; id: string }) => {
+  const bp = boxPreview(ways, id);
+  return <svg className="fl big" viewBox={`-2000 -1000 ${bp.size[0] + 4000} ${bp.size[1] + 2000}`} width={ways === 5 ? 60 : 44} height="44" aria-hidden="true"><FluidSymbol part={bp} /></svg>;
+};
 
 const acts = (s: SideConfig) => s.pilot || s.solenoid || s.manual !== "none" || s.mech !== "none";
 
@@ -127,13 +132,11 @@ export function ValveDialog({ lang, initial, hydraulic, onApply, onClose }: {
             {[0, 1, 2, 3].map((i) => {
               const id = c.boxes[i];
               const enabled = i <= c.boxes.length;
-              const bp = id ? boxPreview(c.ways, id) : null;
+              const opts = [...(i >= 2 ? [""] : []), ...types.map((x) => x.id)];
+              const labels = Object.fromEntries([["", t.none], ...types.map((x) => [x.id, lang === "he" ? x.he : x.en])]) as Record<string, string>;
               return (<div key={i} className={"slot" + (enabled ? "" : " off")}>
-                <div className="sbox">{bp && <svg className="fl big" viewBox={`-2000 -2000 ${bp.size[0] + 4000} ${bp.size[1] + 4000}`}><FluidSymbol part={bp} /></svg>}</div>
-                <select disabled={!enabled} value={id || ""} aria-label={`${t.pos} ${i + 1}`} onChange={(e) => setBox(i, e.target.value)}>
-                  {i >= 2 && <option value="">{t.none}</option>}
-                  {types.map((x) => <option key={x.id} value={x.id}>{lang === "he" ? x.he : x.en}</option>)}
-                </select>
+                <IconSelect big label={`${t.pos} ${i + 1}`} disabled={!enabled} value={id || ""} options={opts} labels={labels} onChange={(k) => setBox(i, k)}
+                  icon={(k) => (k ? <BoxIcon ways={c.ways} id={k} /> : null)} />
               </div>);
             })}
           </div>

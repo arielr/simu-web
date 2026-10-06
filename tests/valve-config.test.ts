@@ -63,3 +63,13 @@ describe("actuators with detent", () => {
     expect(configOf(mk("lever-d")).left.manual).toBe("lever-d");
   });
 });
+
+describe("valve body options", () => {
+  it("3/n bodies: all joined, and 1→3 with 2 closed, simulate as drawn", () => {
+    const p = buildValve({ ...defaultConfig(3), boxes: ["3all", "3short"], initial: 0 }, false);
+    const v = valveInfo(p)!;
+    expect(groups(p, 0)).toEqual(["123"]);
+    expect(groups(p, 1)).toEqual(["13"]);
+    expect(v.boxes.length).toBe(2);
+  });
+});
