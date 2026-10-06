@@ -106,7 +106,7 @@ automatically without a browser; the UI layer only draws the state.
 | `src/shared/` | Shared by all programs: page frame, top bar pieces, parts drawer, dialog (`ui.tsx`), hooks for language, undo, autosave, saving files, shortcuts (`hooks.ts`), common strings (`i18n.ts`). |
 | `src/entries/`, `*/index.html` | One entry per page of the multi-page site. `src/main.tsx` + `src/ui/Shell.tsx` serve the single-file build. |
 | `src/ui/Launcher.tsx` | Launch screen. |
-| `src/fluid/` | Pneumatic/hydraulic program: `.ct` reader (`ctFormat.ts`), import into the editor (`ctImport.ts`), part catalog, symbol renderer, editor (`FluidApp.tsx`). |
+| `src/fluid/` | Pneumatic/hydraulic program: `.ct` reader (`ctFormat.ts`), import into the editor (`ctImport.ts`), part catalog, symbol renderer, editor (`FluidApp.tsx`), valve and cylinder configurators (`valveGen.ts`, `cylGen.ts`). |
 | `src/cad/format.ts` | CADe SIMU `.cad` reader/writer. Unknown records are kept and written back byte-for-byte. |
 | `src/cad/catalog.json` | Names of all CADe SIMU part codes (279), read from the program's own command table. |
 | `src/model/parts.ts` | Part definitions: terminals, contact paths, families (1–4 poles), actuators × contact forms. |
@@ -150,6 +150,17 @@ gradually.
 - **Network**: tubes and open valve paths form nets; a net is under pressure when it reaches
   a supply (air source, compressor, pump) and is not vented (exhaust ports 3/5/R, tank).
 - **Cylinders** extend/retract when one chamber is under pressure and the other vented.
+- **Cylinders** (`src/fluid/cylGen.ts`, `CylDialog.tsx`): a *Configure cylinder* dialog like FluidSIM's,
+  with five tabs. *Configuration*: rod type (one, two, rodless with magnetic coupling or slide,
+  through rod), single/double acting with return spring, cushioning, detection, mirror.
+  *Parameters*: stroke, start position, piston/rod diameter (areas computed), mounting angle,
+  leakage, velocity/force display. *External load*: moving mass, friction by material or by
+  coefficients. *Force profile*: constant or a piecewise-linear force over the stroke.
+  *Marks*: up to six labels with a start..end range that operate contacts and roller valves.
+  The motion uses these values: pressure × area against load, weight and friction, inertia,
+  cushioning near the ends; pneumatic speed falls with the pressure margin, hydraulic speed is
+  pump flow over area. Cylinders loaded from `.ct` files keep their drawing when only their
+  parameters change. Distance-rule marks (`R_SCHALT`) are in mm along the stroke.
 - **Electrical control** (`src/fluid/elec.ts`): relays, on-delay timers, counters, push
   buttons, selector switches, limit switches on distance rules, solenoids, lamps and buzzers.
 - Not modelled yet: flow rates and pressures in bar, throttles (pass through), check-valve

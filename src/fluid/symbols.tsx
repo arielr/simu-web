@@ -12,6 +12,7 @@
  */
 import type { ReactNode } from "react";
 import type { FluidPart } from "./catalog";
+import { cylOverlay } from "./cylGen";
 
 export const STROKE = 330;
 
@@ -140,20 +141,10 @@ const BUILTIN: Record<string, (w: number, h: number) => ReactNode[]> = {
 };
 
 /** pistons and rods: FluidSIM draws them in code so they can move. ext: 0 = retracted, 1 = extended */
+/** moving parts of a cylinder (piston, rod, carriage, spring, marks) */
 export function cylinderParts(part: FluidPart, ext = 0): ReactNode[] | null {
-  if (/^CylDGPP/.test(part.cls)) { // rodless cylinder: a carriage slides along the body
-    const [w] = part.size, cw = Math.min(14000, w * 0.25), x = 1500 + (w - cw - 3000) * ext;
-    return [<rect key="car" x={x} y={-5200} width={cw} height={5200} fill="currentColor" opacity=".85" stroke="none" />];
-  }
   if (!/^(Cyl|Zylinder)/.test(part.cls) || !part.sym.length) return null;
-  const [w] = part.size;
-  const hs = part.sym.map((l) => l.split(" ").map(Number)).filter((n) => n[0] === 1 && n[2] === n[4]).map((n) => n[2]);
-  const top = Math.min(...hs), bot = Math.max(...hs.filter((y) => y < part.size[1]));
-  if (!(bot > top)) return null;
-  const mid = (top + bot) / 2, x0 = w * 0.08, x1 = w * 0.8, px = x0 + (x1 - x0) * ext, rodEnd = px + w * 0.92;
-  return [<rect key="pi" x={px - 900} y={top + 600} width={1800} height={bot - top - 1200} fill="currentColor" stroke="none" />,
-    <line key="rod" x1={px} y1={mid} x2={rodEnd} y2={mid} strokeWidth={STROKE * 2.2} />,
-    ...(part.cls.startsWith("Zylinder") ? [springH(mid, 1200, px - 1200, "sp")] : [])];
+  return cylOverlay(part, ext).map((l, i) => prim(l, 10000 + i));
 }
 
 /** builtin drawings made for a vertical part; FluidSIM stores these classes horizontally */

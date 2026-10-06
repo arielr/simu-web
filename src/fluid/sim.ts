@@ -19,6 +19,7 @@
 import type { FluidPart } from "./catalog";
 import type { FComp, Tube } from "./model";
 import { partOf } from "./model";
+import { physOf, marksOf } from "./cylGen";
 
 /* ---------------- valve analysis ---------------- */
 
@@ -156,11 +157,14 @@ export function roleOf(part: FluidPart): Role {
   }
   if (c === "tank1") return { kind: "tank" };
   if (/^(Cyl|Zylinder)/.test(c) && fl.length) {
-    const w = part.size[0];
+    const w = part.size[0], mh = part.props.MIRROR_H === "T", pr = part.props;
     const sorted = [...fl].sort((p, q) => p.x - q.x);
+    if (mh) sorted.reverse(); // mirrored: the cap side is on the right
     if (sorted.length === 1) {
-      const p = sorted[0], left = p.x < w / 2;
-      return left ? { kind: "cyl", a: p.i, b: null, spring: "b" } : { kind: "cyl", a: -1, b: p.i, spring: "a" };
+      const p = sorted[0], cap = (p.x < w / 2) !== mh;
+      const yes = (v?: string) => v === "T" || v === "TRUE";
+      const spring = !("SPRING_L" in pr || "SPRING_R" in pr) || yes(pr.SPRING_L) || yes(pr.SPRING_R) || yes(pr.PNEU_SPRING_L) || yes(pr.PNEU_SPRING_R);
+      return cap ? { kind: "cyl", a: p.i, b: null, spring: spring ? "b" : null } : { kind: "cyl", a: -1, b: p.i, spring: spring ? "a" : null };
     }
     return { kind: "cyl", a: sorted[0].i, b: sorted[sorted.length - 1].i, spring: null };
   }
@@ -190,8 +194,22 @@ export interface SimState {
   act: Record<string, boolean>;
   /** shut-off valves closed by the user */
   closed: Record<string, boolean>;
+  /** cylinder speed in m/s (+ extending) and piston force in N */
+  vel?: Record<string, number>;
+  force?: Record<string, number>;
 }
 export const emptySim = (): SimState => ({ pos: {}, ext: {}, act: {}, closed: {} });
+/** start state: cylinders at their configured piston position */
+export function startSim(comps: FComp[]): SimState {
+  const st = emptySim();
+  for (const c of comps) {
+    const part = partOf(c);
+    if (!part || roleOf(part).kind !== "cyl") continue;
+    const hub = parseFloat(part.props.HUB || ""), s = parseFloat(part.props.S_RESET ?? part.props.S ?? "");
+    if (hub > 0 && s > 0) st.ext[c.id] = Math.min(1, s / hub);
+  }
+  return st;
+}
 
 export interface SimResult {
   netOf: Map<string, number>;
@@ -210,7 +228,7 @@ const isExhaustPort = (part: FluidPart, i: number) => {
 
 /**
  * Rollers operated by a cylinder: a distance rule (e.g. R_SCHALT) next to a cylinder lists
- * marks `labelN` at `posN` % of the stroke; a valve whose mechanical port carries the same
+ * marks `labelN` at `posN` mm of the stroke; a valve whose mechanical port carries the same
  * label is actuated on that side while the cylinder is at the mark.
  */
 export function activeMarks(comps: FComp[], ext: Record<string, number>): Set<string> {
@@ -223,11 +241,19 @@ export function activeMarks(comps: FComp[], ext: Record<string, number>): Set<st
     if (!("label0" in part.props) || !cyls.length) continue;
     const [x, y] = centre(c, part);
     const cyl = cyls.reduce((a, b) => { const pa = centre(a.c, a.part), pb = centre(b.c, b.part); return Math.hypot(pb[0] - x, pb[1] - y) < Math.hypot(pa[0] - x, pa[1] - y) ? b : a; });
-    const e = (ext[cyl.c.id] ?? 0) * 100;
+    // mark positions are in mm along the stroke of the cylinder
+    const hub = parseFloat(cyl.part.props.HUB || "100") || 100, e = (ext[cyl.c.id] ?? 0) * hub;
     for (let i = 0; `label${i}` in part.props; i++) {
       const pos = parseFloat(part.props[`pos${i}`] || "0");
-      if (Math.abs(e - pos) <= 2.5) active.add(part.props[`label${i}`]);
+      if (Math.abs(e - pos) <= Math.max(0.5, hub * 0.025)) active.add(part.props[`label${i}`]);
     }
+  }
+  // marks configured on the cylinder itself (start..end in mm)
+  for (const { c, part } of cyls) {
+    const ms = marksOf(part);
+    if (!ms.length) continue;
+    const stroke = parseFloat(part.props.HUB || "100") || 100, mm = (ext[c.id] ?? 0) * stroke, tol = Math.max(0.5, stroke * 0.025);
+    for (const m of ms) if (mm >= Math.min(m.start, m.end) - tol && mm <= Math.max(m.start, m.end) + tol) active.add(m.label);
   }
   return active;
 }
@@ -327,6 +353,65 @@ export function solveFluid(comps: FComp[], tubes: Tube[], st: SimState, solenoid
     res.dir[c.id] = d;
   }
   return res;
+}
+
+/**
+ * Advance the cylinders by dt seconds with their physical parameters:
+ * supply pressure on the piston (A_K) or annular (A_R) area, return spring, external
+ * load (constant or profile), weight along the mounting angle, static/dynamic friction,
+ * moving mass (inertia) and end cushioning. Pneumatic speed falls with the square root
+ * of the remaining pressure margin (flow through the valve); hydraulic speed is the pump
+ * flow (minus internal leakage) over the area.
+ */
+export function moveCylinders(comps: FComp[], st: SimState, res: SimResult, dt: number, hydraulic: boolean) {
+  const ext = { ...st.ext }, vel: Record<string, number> = { ...(st.vel || {}) }, force: Record<string, number> = {};
+  let moving = false;
+  // supply: pressure (bar) and, for hydraulics, flow (l/min)
+  let bar = hydraulic ? 60 : 6, lpm = 2;
+  for (const c of comps) {
+    const p = partOf(c); if (!p || roleOf(p).kind !== "source") continue;
+    const pr = p.props, P = parseFloat(pr.P_LIM || pr.PMAX || "");
+    if (P > 0) bar = P;
+    const q = pr.DISPLACEMENT && pr.RPM ? parseFloat(pr.DISPLACEMENT) * parseFloat(pr.RPM) : parseFloat(pr.FLOW || "");
+    if (hydraulic && q > 0 && q < 1000) lpm = q;
+    break;
+  }
+  const g = 9.81, QP = 6.3e-5; // pneumatic: effective flow, ~0.2 m/s for a 20 mm piston
+  for (const c of comps) {
+    const part = partOf(c); if (!part) continue;
+    const r = roleOf(part); if (r.kind !== "cyl") continue;
+    const ph = physOf(part), e = ext[c.id] ?? 0, d = res.dir[c.id] || 0;
+    const P = (i: number | null) => i !== null && i >= 0 && res.pressure.has(res.netOf.get(c.id + ":" + i)!);
+    const pa = P(r.a), pb = P(r.b);
+    const Fp = (pa ? bar * 10 * ph.ak : 0) - (pb ? bar * 10 * ph.ar : 0);
+    const Fs = r.spring ? (r.spring === "a" ? 1 : -1) * 0.15 * 6 * 10 * ph.ak * (hydraulic ? 0.5 : 1) : 0;
+    const rad = (ph.angle * Math.PI) / 180, mm = e * ph.stroke;
+    const Fl = -ph.load(mm) - ph.mass * g * Math.sin(rad);
+    force[c.id] = Math.round(Fp + Fs);
+    let v = Math.abs(vel[c.id] || 0);
+    if (Math.sign(vel[c.id] || 0) !== d) v = 0;
+    let target = 0, Fnet = 0;
+    if (d) {
+      const Ff = (v > 0 ? ph.muD : ph.muS) * ph.mass * g * Math.abs(Math.cos(rad));
+      Fnet = d * (Fp + Fs + Fl) - Ff;
+      const A = Math.max(1e-6, (d > 0 ? ph.ak : ph.ar) * 1e-4);
+      const Fref = Math.max(1e-6, bar * 10 * (d > 0 ? ph.ak : ph.ar));
+      if (Fnet > 0) {
+        const driven = d > 0 ? pa : pb;
+        if (hydraulic && driven) target = Math.max(0, (lpm - ph.leak * bar / 10) / 60000) / A;
+        else target = (hydraulic ? lpm / 60000 : QP) / A * Math.sqrt(Math.min(1, Fnet / Fref));
+        const left = d > 0 ? ph.stroke * (1 - e) : ph.stroke * e;
+        if (ph.damping && left < Math.min(15, ph.stroke * 0.2)) target *= ph.dampAdj ? 0.4 : 0.3;
+      }
+    }
+    if (ph.mass > 0 && target > v) v = Math.min(target, v + (Fnet / ph.mass) * dt);
+    else v = target;
+    let n = e + (d * v * dt) / (ph.stroke / 1000);
+    if (n <= 0 || n >= 1) { n = Math.max(0, Math.min(1, n)); v = 0; }
+    vel[c.id] = d * v;
+    if (n !== e) { ext[c.id] = n; moving = true; }
+  }
+  return { ext, vel, force, moving };
 }
 
 /** advance cylinders by dt seconds (full stroke in `stroke` seconds) */
