@@ -53,3 +53,13 @@ describe("valve configurator: FluidSIM options", () => {
     expect(sidePreview({ solenoid: true, piloted: true }).sym.some((l) => l.startsWith("5 "))).toBe(true);
   });
 });
+
+describe("actuators with detent", () => {
+  it("a push button with detent stays pressed (toggle), without detent it springs back", async () => {
+    const { clickAction } = await import("../src/fluid/sim");
+    const mk = (manual: any) => buildValve({ ...defaultConfig(3), left: { ...defaultSide(), manual }, right: { ...defaultSide(), spring: true } }, false);
+    expect(clickAction(mk("button"), 0)!.momentary).toBe(true);
+    expect(clickAction(mk("button-d"), 0)!.momentary).toBe(false);
+    expect(configOf(mk("lever-d")).left.manual).toBe("lever-d");
+  });
+});

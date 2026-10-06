@@ -13,24 +13,39 @@ const TX = {
     manual: "Muscular", mech: "Mechanical", elpn: "Pneumatic / electric", label: "Label",
     initial: "Initial position", reversible: "Reversible", dominant: "Dominant signal", dl: "Left", dr: "Right",
     flow: "Standard nominal flow", mirror: "Mirror", horiz: "Horizontal", vert: "Vertical", ok: "OK", cancel: "Cancel", none: "—", pos: "Position",
-    manuals: { none: "None", general: "General manual", button: "Push button", mushroom: "Mushroom button", lever: "Lever", detent: "Lever with detent", pedal: "Pedal" } as Record<Manual, string>,
-    mechs: { none: "None", plunger: "Plunger", roller: "Roller", idle: "Idle-return roller" } as Record<Mech, string>,
-    elpns: { none: "None", pilot: "Pilot pressure", solenoid: "Solenoid" } as Record<ElPn, string>,
+    manuals: { none: "None", general: "General manual", "general-d": "General manual, detent", button: "Push button", "button-d": "Push button, detent", mushroom: "Mushroom button", "mushroom-d": "Mushroom button, detent", lever: "Lever", "lever-d": "Lever, detent", detent: "Lever, detent", pedal: "Pedal", "pedal-d": "Pedal, detent" } as Record<Manual, string>,
+    mechs: { none: "None", plunger: "Plunger", roller: "Roller", idle: "Idle-return roller →", idle2: "Idle-return roller ←", general: "Mechanism (general)", twoway: "Mechanism (two-way)" } as Record<Mech, string>,
+    elpns: { none: "None", solenoid: "Solenoid", pilot: "Pilot pressure", solpilot: "Solenoid with pilot" } as Record<ElPn, string>,
     hint: "Labels link the valve to the circuit: a solenoid label (e.g. 1Y1) to an electrical solenoid, a roller label (e.g. 1S1) to a mark of a cylinder." },
   he: { title: "הגדרת שסתום", left: "הפעלה שמאלית", right: "הפעלה ימנית", body: "גוף השסתום", name: "שם הרכיב", ways: "מספר יציאות",
     spring: "החזרת קפיץ", piloted: "מוגבר פיקוד (סרוו)", ext: "אספקה חיצונית", pneuSpring: "קפיץ אוויר",
     manual: "ידני", mech: "מכני", elpn: "פנאומטי / חשמלי", label: "תווית",
     initial: "מצב התחלתי", reversible: "הפיך", dominant: "אות דומיננטי", dl: "שמאל", dr: "ימין",
     flow: "ספיקה נומינלית", mirror: "שיקוף", horiz: "אופקי", vert: "אנכי", ok: "אישור", cancel: "ביטול", none: "—", pos: "מצב",
-    manuals: { none: "ללא", general: "ידני כללי", button: "לחצן", mushroom: "לחצן פטרייה", lever: "ידית", detent: "ידית עם נעילה", pedal: "דוושה" } as Record<Manual, string>,
-    mechs: { none: "ללא", plunger: "פין לחיצה", roller: "גלגלת", idle: "גלגלת חד-כיוונית" } as Record<Mech, string>,
-    elpns: { none: "ללא", pilot: "פיקוד לחץ", solenoid: "סולנואיד" } as Record<ElPn, string>,
+    manuals: { none: "ללא", general: "ידני כללי", "general-d": "ידני כללי, עם נעילה", button: "לחצן", "button-d": "לחצן, עם נעילה", mushroom: "לחצן פטרייה", "mushroom-d": "לחצן פטרייה, עם נעילה", lever: "ידית", "lever-d": "ידית, עם נעילה", detent: "ידית, עם נעילה", pedal: "דוושה", "pedal-d": "דוושה, עם נעילה" } as Record<Manual, string>,
+    mechs: { none: "ללא", plunger: "פין לחיצה", roller: "גלגלת", idle: "גלגלת חד-כיוונית →", idle2: "גלגלת חד-כיוונית ←", general: "מנגנון (כללי)", twoway: "מנגנון (דו-כיווני)" } as Record<Mech, string>,
+    elpns: { none: "ללא", solenoid: "סולנואיד", pilot: "פיקוד לחץ", solpilot: "סולנואיד עם פיקוד" } as Record<ElPn, string>,
     hint: "תוויות מקשרות את השסתום למעגל: תווית סולנואיד (למשל 1Y1) לסולנואיד חשמלי, ותווית גלגלת (למשל 1S1) לסימון של בוכנה." },
 };
 type T = typeof TX.en;
 
-const Icon = ({ part }: { part: FluidPart }) =>
-  <svg className="fl big" viewBox={`-1000 7168 ${part.size[0] + 2000} 22528`} width="52" height="32" aria-hidden="true"><FluidSymbol part={part} /></svg>;
+/** bounding box of a part's drawing, so every icon is shown at the same scale, centred */
+function symBox(part: FluidPart): [number, number, number, number] {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  const add = (x: number, y: number, r = 0) => { x0 = Math.min(x0, x - r); y0 = Math.min(y0, y - r); x1 = Math.max(x1, x + r); y1 = Math.max(y1, y + r); };
+  for (const l of part.sym) {
+    const n = l.split(" ").map(Number);
+    if (n[0] === 1 || n[0] === 2) { add(n[1], n[2]); add(n[3], n[4]); }
+    else if (n[0] === 5) { add(n[1], n[2]); add(n[3], n[4]); add(n[5], n[6]); }
+    else if (n[0] === 3 || n[0] === 4) add(n[1], n[2], n[3]);
+  }
+  return [x0, y0, x1, y1];
+}
+const ICON_W = 22000, ICON_H = 13000; // fixed scale for all icons
+const Icon = ({ part }: { part: FluidPart }) => {
+  const [x0, y0, x1, y1] = symBox(part), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  return <svg className="fl big" viewBox={`${cx - ICON_W / 2} ${cy - ICON_H / 2} ${ICON_W} ${ICON_H}`} width="56" height="33" aria-hidden="true"><FluidSymbol part={part} /></svg>;
+};
 
 /** a drop-down list whose options are actuator symbols */
 function IconSelect<K extends string>({ value, options, labels, icon, onChange, label }: {
@@ -55,7 +70,7 @@ function IconSelect<K extends string>({ value, options, labels, icon, onChange, 
 }
 
 function Side({ s, set, t, right }: { s: SideConfig; set: (s: SideConfig) => void; t: T; right: boolean }) {
-  const elpn: ElPn = s.solenoid ? "solenoid" : s.pilot ? "pilot" : "none";
+  const elpn: ElPn = s.solenoid ? (s.piloted ? "solpilot" : "solenoid") : s.pilot ? "pilot" : "none";
   const ck = (on: boolean, l: string, f: (v: boolean) => void, dis = false, ind = false) => (
     <label className={"ck" + (dis ? " dis" : "") + (ind ? " ind1" : "")}><input type="checkbox" checked={on} disabled={dis} onChange={(e) => f(e.target.checked)} /> {l}</label>);
   const row = (l: string, ctl: ReactNode) => <div className={"arow" + (right ? " r" : "")}><span>{l}</span>{ctl}</div>;
@@ -71,8 +86,8 @@ function Side({ s, set, t, right }: { s: SideConfig; set: (s: SideConfig) => voi
       icon={(k) => (k === "none" ? null : sidePreview({ mech: k }, right))} />)}
     {s.mech !== "none" && <label className="sub">{t.label} <input dir="ltr" value={s.mechLabel} onInput={(e) => set({ ...s, mechLabel: (e.target as HTMLInputElement).value.toUpperCase() })} /></label>}
     {row(t.elpn, <IconSelect label={t.elpn} value={elpn} options={ELPNS} labels={t.elpns}
-      onChange={(k) => set({ ...s, pilot: k === "pilot", solenoid: k === "solenoid", piloted: k === "solenoid" ? s.piloted : false })}
-      icon={(k) => (k === "none" ? null : sidePreview({ pilot: k === "pilot", solenoid: k === "solenoid" }, right))} />)}
+      onChange={(k) => set({ ...s, pilot: k === "pilot", solenoid: k === "solenoid" || k === "solpilot", piloted: k === "solpilot" })}
+      icon={(k) => (k === "none" ? null : sidePreview({ pilot: k === "pilot", solenoid: k === "solenoid" || k === "solpilot", piloted: k === "solpilot" }, right))} />)}
     {s.solenoid && <label className="sub">{t.label} <input dir="ltr" value={s.solLabel} onInput={(e) => set({ ...s, solLabel: (e.target as HTMLInputElement).value.toUpperCase() })} /></label>}
   </div>);
 }

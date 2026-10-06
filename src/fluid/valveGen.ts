@@ -8,12 +8,15 @@
 import type { FluidPart, FluidPort } from "./catalog";
 
 export type Ways = 2 | 3 | 4 | 5;
-export type Manual = "none" | "general" | "button" | "mushroom" | "lever" | "detent" | "pedal";
-export type Mech = "none" | "plunger" | "roller" | "idle";
-export type ElPn = "none" | "pilot" | "solenoid";
-export const MANUALS: Manual[] = ["none", "general", "button", "mushroom", "lever", "detent", "pedal"];
-export const MECHS: Mech[] = ["none", "plunger", "roller", "idle"];
-export const ELPNS: ElPn[] = ["none", "pilot", "solenoid"];
+/** muscular actuation; "-d" = with detent (stays where it is put). "detent" = lever with detent (older configs) */
+export type Manual = "none" | "general" | "general-d" | "button" | "button-d" | "mushroom" | "mushroom-d" | "lever" | "lever-d" | "pedal" | "pedal-d" | "detent";
+export type Mech = "none" | "plunger" | "roller" | "idle" | "idle2" | "general" | "twoway";
+export type ElPn = "none" | "pilot" | "solenoid" | "solpilot";
+export const MANUALS: Manual[] = ["none", "general", "general-d", "button", "button-d", "mushroom", "mushroom-d", "lever", "lever-d", "pedal", "pedal-d"];
+export const MECHS: Mech[] = ["none", "plunger", "roller", "idle", "idle2", "general", "twoway"];
+export const ELPNS: ElPn[] = ["none", "solenoid", "pilot", "solpilot"];
+const hasDetent = (m: Manual) => m.endsWith("-d") || m === "detent";
+const manualBase = (m: Manual) => (m === "detent" ? "lever" : m.replace(/-d$/, ""));
 export interface SideConfig {
   spring: boolean;
   /** air spring (return by pressure), optionally with external supply */
@@ -137,6 +140,12 @@ function drawBox(ways: Ways, a: number, type: BoxType): string[] {
   return out;
 }
 
+function arrowSmall(x1: number, y1: number, x2: number, y2: number): string[] {
+  const dx = x2 - x1, dy = y2 - y1, l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l;
+  const bx = x2 - ux * 1500, by = y2 - uy * 1500, px = -uy * 700, py = ux * 700, r = Math.round;
+  return [line(x1, y1, x2, y2), `5 ${r(x2)} ${r(y2)} ${r(bx + px)} ${r(by + py)} ${r(bx - px)} ${r(by - py)} ${r(bx - px)} ${r(by - py)} 0`];
+}
+
 /* actuators of one side are laid out outwards from the box edge, one slot each (like FluidSIM) */
 const SLOT = { sol: 7168, servo: 2560, manual: 11264, mech: 13312, spring: 12288 };
 function slots(s: SideConfig): { k: "sol" | "manual" | "mech" | "spring"; o: number; w: number }[] {
@@ -169,18 +178,31 @@ function drawSide(s: SideConfig, e: number, dir: number, end: number): string[] 
       if (c0) out.push(line(u(c0), y, x1, y));
       out.push(line(x1, 14336, x2, 14336), line(x2, 14336, x2, 22528), line(x2, 22528, x1, 22528), line(x1, 22528, x1, 14336), line(x1, 22528, x2, 14336));
     } else if (k === "manual") {
-      const x2 = u(9216);
-      out.push(line(u(0), y, x2, y));
-      if (s.manual === "button") out.push(line(x2, y - 3072, x2, y + 3072));
-      else if (s.manual === "general") out.push(line(x2, y - 3072, x2, y + 3072), line(x2, y - 3072, u(7168), y - 3072), line(x2, y + 3072, u(7168), y + 3072));
-      else if (s.manual === "mushroom") out.push(line(x2, y - 3072, x2, y + 3072), `4 ${Math.round(x2)} ${y} 3072 ${dir > 0 ? 270000 : 90000} ${dir > 0 ? 90000 : 270000}`);
-      else if (s.manual === "lever" || s.manual === "detent") out.push(line(u(4096), y, u(9216), y - 5120), ...(s.manual === "detent" ? [line(u(1536), y - 3584, u(2560), y - 1024), line(u(2560), y - 1024, u(3584), y - 3584)] : []));
-      else if (s.manual === "pedal") out.push(line(x2, y, u(11264), y - 4096));
+      const x2 = u(9216), m = manualBase(s.manual);
+      out.push(line(u(0), y, m === "lever" || m === "pedal" ? u(5120) : x2, y));
+      if (m === "button") out.push(line(x2, y - 3072, x2, y + 3072));
+      else if (m === "general") out.push(line(x2, y - 3072, x2, y + 3072), line(x2, y - 3072, u(7168), y - 3072), line(x2, y + 3072, u(7168), y + 3072));
+      else if (m === "mushroom") out.push(line(x2, y - 3072, x2, y + 3072), `4 ${Math.round(x2)} ${y} 3072 ${dir > 0 ? 270000 : 90000} ${dir > 0 ? 90000 : 270000}`);
+      else if (m === "lever") out.push(line(u(5120), y, u(9216), y - 5120), `3 ${Math.round(u(9728))} ${y - 5760} 900 0 2`); // lever with a knob
+      else if (m === "pedal") out.push(line(u(5120), y, u(5120), y + 2560), line(u(5120), y + 2560, u(10240), y - 1536)); // pedal: foot plate
+      if (hasDetent(s.manual)) // detent: a notch under the rod
+        out.push(line(u(1536), y + 3584, u(2560), y + 1024), line(u(2560), y + 1024, u(3584), y + 3584), line(u(2560), y, u(2560), y + 1024));
     } else if (k === "mech") {
       out.push(line(u(0), y, u(9216), y));
       if (s.mech === "roller") out.push(`3 ${Math.round(u(11264))} ${y} 2048 0 2`);
-      else if (s.mech === "idle") out.push(`3 ${Math.round(u(11264))} ${y} 2048 0 2`, line(u(6656), y, u(9216), y - 2560)); // idle-return roller: hinged lever
-      else out.push(`4 ${Math.round(u(9216))} ${y} 1536 ${dir > 0 ? 270000 : 90000} ${dir > 0 ? 90000 : 270000}`); // plunger: rounded end
+      else if (s.mech === "idle" || s.mech === "idle2") { // idle-return roller: hinged lever, acts in one direction only (arrow)
+        const up = s.mech === "idle" ? -1 : 1;
+        out.push(`3 ${Math.round(u(11264))} ${y} 2048 0 2`, line(u(6656), y, u(9216), y + up * 2560));
+        out.push(...arrowSmall(u(8704), y - 4096, u(11264), y - 4096 + up * 0));
+      } else if (s.mech === "general" || s.mech === "twoway") { // mechanism in a box: general (✱) or two-way (◁▷)
+        const b0 = u(9216), b1 = u(13312);
+        out.push(line(b0, y - 2560, b1, y - 2560), line(b1, y - 2560, b1, y + 2560), line(b1, y + 2560, b0, y + 2560), line(b0, y + 2560, b0, y - 2560));
+        const cx = (b0 + b1) / 2;
+        if (s.mech === "general") out.push(line(cx - 1536, y, cx + 1536, y), line(cx, y - 1536, cx, y + 1536), line(cx - 1100, y - 1100, cx + 1100, y + 1100), line(cx - 1100, y + 1100, cx + 1100, y - 1100));
+        else out.push(line(cx, y - 2560, cx, y + 2560), line(cx - 300, y, cx - 1700, y - 1300), line(cx - 1700, y - 1300, cx - 1700, y + 1300), line(cx - 1700, y + 1300, cx - 300, y),
+          `5 ${Math.round(cx + 300)} ${y} ${Math.round(cx + 1700)} ${y - 1300} ${Math.round(cx + 1700)} ${y + 1300} ${Math.round(cx + 1700)} ${y + 1300} 0`);
+      }
+      else if (s.mech === "plunger") out.push(`4 ${Math.round(u(9216))} ${y} 1536 ${dir > 0 ? 270000 : 90000} ${dir > 0 ? 90000 : 270000}`); // plunger: rounded end
     } else if (s.pneuSpring) { // air spring: hollow triangle with a short spring behind it
       out.push(line(u(512), y, u(4608), y - 2560), line(u(4608), y - 2560, u(4608), y + 2560), line(u(4608), y + 2560, u(512), y));
       for (let i = 0; i < 4; i++) out.push(line(u(4608 + i * 1792), y + (i % 2 ? 2400 : -2400), u(4608 + (i + 1) * 1792), y + (i % 2 ? -2400 : 2400)));
@@ -226,7 +248,7 @@ export function buildValve(cfg: ValveConfig, hydraulic: boolean): FluidPart {
   if (cfg.right.mech !== "none") ports.push({ kind: "UMConnection", x: E + linkAt(cfg.right, "mech"), y: MID, label: cfg.right.mechLabel, ex: "" });
   const act = (s: SideConfig, side: "L" | "R") => ({
     [`ACTUATION_${side}_EL_PN`]: s.solenoid ? `A${side}_PE1` : s.pilot ? `A${side}_PE2` : `A${side}N`,
-    [`ACTUATION_${side}_MA`]: s.manual !== "none" ? `A${side}_MA1` : `A${side}N`,
+    [`ACTUATION_${side}_MA`]: s.manual !== "none" ? `A${side}_MA1${hasDetent(s.manual) ? "F" : ""}` : `A${side}N`,
     [`ACTUATION_${side}_ME`]: s.mech !== "none" ? `A${side}_ME2` : `A${side}N`,
     [`SPRING_${side}`]: s.spring && !s.pneuSpring ? "TRUE" : "FALSE",
   });
@@ -277,7 +299,8 @@ export function buildValve(cfg: ValveConfig, hydraulic: boolean): FluidPart {
 
 /** best-effort reading of an existing valve (from a file or the library) into a configuration */
 export function configOf(part: FluidPart): ValveConfig {
-  if (part.config.startsWith("gen:")) { try { const c = JSON.parse(part.config.slice(4)); return { ...c, left: { ...defaultSide(), ...c.left }, right: { ...defaultSide(), ...c.right } }; } catch { /* fall through */ } }
+  if (part.config.startsWith("gen:")) { try { const c = JSON.parse(part.config.slice(4)); const fix = (x: SideConfig) => ({ ...defaultSide(), ...x, manual: (x.manual === "detent" ? "lever-d" : x.manual) as Manual });
+      return { ...c, left: fix(c.left), right: fix(c.right) }; } catch { /* fall through */ } }
   const m = /WV_(\d)/.exec(part.cls), ways = Math.min(5, Math.max(2, m ? +m[1] : 5)) as Ways;
   const codes = [...(part.props.VALUECLASS || "").matchAll(/\(\d+\s+(\w+)\)/g)].map((x) => x[1]);
   const types = BOX_TYPES[ways];
@@ -290,7 +313,7 @@ export function configOf(part: FluidPart): ValveConfig {
     return {
       spring: part.props[`SPRING_${s}`] === "TRUE" || pneu, pneuSpring: pneu, extSpring: false, piloted: false, extPilot: false,
       pilot: /PE2/.test(el), solenoid: /PE1/.test(el),
-      manual: /MA/.test(ma) ? (/F$/.test(ma) ? "detent" : "button") : "none",
+      manual: /MA/.test(ma) ? (/F$/.test(ma) ? "button-d" : "button") : "none",
       mech: /ME1/.test(me) ? "plunger" : /ME3/.test(me) ? "idle" : /ME/.test(me) ? "roller" : "none",
       solLabel: lbl("UEConnection"), mechLabel: lbl("UMConnection"),
     };
@@ -309,7 +332,8 @@ export function boxPreview(ways: Ways, id: string): FluidPart {
 /** one side's actuator alone, for the icons of the dialog's actuator lists */
 export function sidePreview(s: Partial<SideConfig>, right = false): FluidPart {
   const full = { ...defaultSide(), ...s }, W = Math.max(16384, sideWidth(full) - 2048);
-  const sym = [line(right ? 0 : W, TOP + 4096, right ? 0 : W, BOT - 4096), ...drawSide(full, right ? 0 : W, right ? 1 : -1, right ? W : 0)];
+  // the icon shows the actuator against a short piece of the valve edge; a pilot line stops short of the port
+  const sym = [line(right ? 0 : W, MID - 5120, right ? 0 : W, MID + 5120), ...drawSide(full, right ? 0 : W, right ? 1 : -1, right ? 9216 : W - 9216)];
   return { cls: "act", config: "", programs: [], domain: "", files: [], description: "", model: "", size: [W, H], ports: [], props: {}, fields: {}, sym };
 }
 

@@ -454,5 +454,7 @@ export function clickAction(part: FluidPart, xRel: number): { side: "L" | "R"; m
   if (!side) return null;
   const kind = (side === "L" ? v.left : v.right).kind;
   // push buttons and rollers spring back; solenoids are switched on/off
-  return { side, momentary: kind === "manual" || kind === "mech" ? v.springL || v.springR : false };
+  // a manual actuator with detent stays where it is put
+  const detent = kind === "manual" && /F$/.test(part.props[`ACTUATION_${side}_MA`] || "");
+  return { side, momentary: !detent && (kind === "manual" || kind === "mech") ? v.springL || v.springR : false };
 }
