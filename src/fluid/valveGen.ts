@@ -8,10 +8,18 @@
 import type { FluidPart, FluidPort } from "./catalog";
 
 export type Ways = 2 | 3 | 4 | 5;
-export type Manual = "none" | "button" | "lever" | "detent" | "pedal";
-export type Mech = "none" | "roller" | "plunger";
+export type Manual = "none" | "general" | "button" | "mushroom" | "lever" | "detent" | "pedal";
+export type Mech = "none" | "plunger" | "roller" | "idle";
+export type ElPn = "none" | "pilot" | "solenoid";
+export const MANUALS: Manual[] = ["none", "general", "button", "mushroom", "lever", "detent", "pedal"];
+export const MECHS: Mech[] = ["none", "plunger", "roller", "idle"];
+export const ELPNS: ElPn[] = ["none", "pilot", "solenoid"];
 export interface SideConfig {
   spring: boolean;
+  /** air spring (return by pressure), optionally with external supply */
+  pneuSpring?: boolean; extSpring?: boolean;
+  /** solenoid pilot-operated (servo), optionally with external pilot supply */
+  piloted?: boolean; extPilot?: boolean;
   pilot: boolean;
   solenoid: boolean;
   manual: Manual;
@@ -31,6 +39,12 @@ export interface ValveConfig {
   right: SideConfig;
   name: string;
   flow: number;
+  /** ports may be used in both directions (flow arrows on both ends) */
+  reversible?: boolean;
+  /** which side wins when both are actuated (memory valves) */
+  dominant?: "none" | "L" | "R";
+  mirrorH?: boolean;
+  mirrorV?: boolean;
 }
 
 /* ---- box types: which ports are joined; every other port is blocked ---- */
@@ -78,7 +92,7 @@ const PORTS: Record<Ways, [string, number, boolean][]> = {
 const HYD_NAME: Record<string, string> = { "4": "A", "2": "B", "1": "P", "3": "T" };
 const isExhaust = (n: string) => n === "3" || n === "5";
 
-export const defaultSide = (): SideConfig => ({ spring: false, pilot: false, solenoid: false, manual: "none", mech: "none", solLabel: "", mechLabel: "" });
+export const defaultSide = (): SideConfig => ({ spring: false, pneuSpring: false, extSpring: false, piloted: false, extPilot: false, pilot: false, solenoid: false, manual: "none", mech: "none", solLabel: "", mechLabel: "" });
 export function defaultConfig(ways: Ways = 5): ValveConfig {
   const t = BOX_TYPES[ways];
   return { ways, boxes: [t[1].id, t[0].id], initial: 1, left: { ...defaultSide(), solenoid: true, solLabel: "1Y1" }, right: { ...defaultSide(), spring: true }, name: "", flow: 500 };
@@ -123,48 +137,81 @@ function drawBox(ways: Ways, a: number, type: BoxType): string[] {
   return out;
 }
 
-/** actuators of one side; e = box edge x, dir = -1 left (outwards), +1 right */
-function drawSide(s: SideConfig, e: number, dir: number, W: number): string[] {
+/* actuators of one side are laid out outwards from the box edge, one slot each (like FluidSIM) */
+const SLOT = { sol: 7168, servo: 2560, manual: 11264, mech: 13312, spring: 12288 };
+function slots(s: SideConfig): { k: "sol" | "manual" | "mech" | "spring"; o: number; w: number }[] {
+  const out: { k: "sol" | "manual" | "mech" | "spring"; o: number; w: number }[] = [];
+  let o = 0;
+  const add = (k: "sol" | "manual" | "mech" | "spring", w: number) => { out.push({ k, o, w }); o += w; };
+  if (s.solenoid) add("sol", SLOT.sol + (s.piloted ? SLOT.servo : 0));
+  if (s.manual !== "none") add("manual", SLOT.manual + (s.manual === "pedal" ? 2048 : 0));
+  if (s.mech !== "none") add("mech", SLOT.mech);
+  if (s.spring || s.pneuSpring) add("spring", SLOT.spring);
+  return out;
+}
+/** width a side needs outside the boxes */
+const sideWidth = (s: SideConfig) => Math.max(SIDE, slots(s).reduce((a, x) => a + x.w, 0) + 3072);
+
+/** actuators of one side; e = box edge x, dir = -1 left (outwards), +1 right; end = outer edge x */
+function drawSide(s: SideConfig, e: number, dir: number, end: number): string[] {
   const out: string[] = [];
-  const x = (d: number) => e + dir * d;
-  if (s.spring) { // zigzag
-    const n = 6, pts: [number, number][] = [];
-    for (let i = 0; i <= n; i++) pts.push([x((i * 12288) / n), MID + (i === 0 || i === n ? 0 : i % 2 ? -3600 : 3600)]);
-    for (let i = 1; i < pts.length; i++) out.push(line(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]));
+  const x = (d: number) => e + dir * d, y = MID;
+  for (const { k, o } of slots(s)) {
+    const u = (d: number) => x(o + d);
+    if (k === "sol") {
+      let c0 = 0;
+      if (s.piloted) { // servo pilot: a small box with a filled triangle between valve and coil
+        out.push(line(u(0), 14336, u(SLOT.servo), 14336), line(u(0), 22528, u(SLOT.servo), 22528), line(u(SLOT.servo), 14336, u(SLOT.servo), 22528));
+        out.push(`5 ${Math.round(u(400))} ${y} ${Math.round(u(2000))} ${y - 1600} ${Math.round(u(2000))} ${y + 1600} ${Math.round(u(2000))} ${y + 1600} 0`);
+        c0 = SLOT.servo;
+      }
+      const x1 = u(c0 + 512), x2 = u(c0 + 6656);
+      if (c0) out.push(line(u(c0), y, x1, y));
+      out.push(line(x1, 14336, x2, 14336), line(x2, 14336, x2, 22528), line(x2, 22528, x1, 22528), line(x1, 22528, x1, 14336), line(x1, 22528, x2, 14336));
+    } else if (k === "manual") {
+      const x2 = u(9216);
+      out.push(line(u(0), y, x2, y));
+      if (s.manual === "button") out.push(line(x2, y - 3072, x2, y + 3072));
+      else if (s.manual === "general") out.push(line(x2, y - 3072, x2, y + 3072), line(x2, y - 3072, u(7168), y - 3072), line(x2, y + 3072, u(7168), y + 3072));
+      else if (s.manual === "mushroom") out.push(line(x2, y - 3072, x2, y + 3072), `4 ${Math.round(x2)} ${y} 3072 ${dir > 0 ? 270000 : 90000} ${dir > 0 ? 90000 : 270000}`);
+      else if (s.manual === "lever" || s.manual === "detent") out.push(line(u(4096), y, u(9216), y - 5120), ...(s.manual === "detent" ? [line(u(1536), y - 3584, u(2560), y - 1024), line(u(2560), y - 1024, u(3584), y - 3584)] : []));
+      else if (s.manual === "pedal") out.push(line(x2, y, u(11264), y - 4096));
+    } else if (k === "mech") {
+      out.push(line(u(0), y, u(9216), y));
+      if (s.mech === "roller") out.push(`3 ${Math.round(u(11264))} ${y} 2048 0 2`);
+      else if (s.mech === "idle") out.push(`3 ${Math.round(u(11264))} ${y} 2048 0 2`, line(u(6656), y, u(9216), y - 2560)); // idle-return roller: hinged lever
+      else out.push(`4 ${Math.round(u(9216))} ${y} 1536 ${dir > 0 ? 270000 : 90000} ${dir > 0 ? 90000 : 270000}`); // plunger: rounded end
+    } else if (s.pneuSpring) { // air spring: hollow triangle with a short spring behind it
+      out.push(line(u(512), y, u(4608), y - 2560), line(u(4608), y - 2560, u(4608), y + 2560), line(u(4608), y + 2560, u(512), y));
+      for (let i = 0; i < 4; i++) out.push(line(u(4608 + i * 1792), y + (i % 2 ? 2400 : -2400), u(4608 + (i + 1) * 1792), y + (i % 2 ? -2400 : 2400)));
+    } else { // spring zigzag
+      const n = 6, pts: [number, number][] = [];
+      for (let i = 0; i <= n; i++) pts.push([u((i * 12288) / n), y + (i === 0 || i === n ? 0 : i % 2 ? -3600 : 3600)]);
+      for (let i = 1; i < pts.length; i++) out.push(line(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]));
+    }
   }
-  if (s.solenoid) { // coil box with a diagonal
-    const x1 = x(2048), x2 = x(8192);
-    out.push(line(x1, 14336, x2, 14336), line(x2, 14336, x2, 22528), line(x2, 22528, x1, 22528), line(x1, 22528, x1, 14336), line(x1, 22528, x2, 14336));
-  }
-  if (s.pilot) { // pilot triangle fed from the side port
-    const y = 26624, tip = x(0), base = x(5120), end = dir < 0 ? 0 : W;
-    out.push(line(tip, y, base, y - 2560), line(base, y - 2560, base, y + 2560), line(base, y + 2560, tip, y), line(base, y, end, y));
-  }
-  if (s.manual !== "none") {
-    const y = 10240, x1 = x(0), x2 = x(10240);
-    out.push(line(x1, y, x2, y));
-    if (s.manual === "button") out.push(line(x2, y - 3072, x2, y + 3072));
-    else if (s.manual === "lever" || s.manual === "detent") out.push(line(x(4096), y, x(9216), y - 5120), ...(s.manual === "detent" ? [line(x(6144), y + 1024, x(7168), y + 3072), line(x(7168), y + 3072, x(8192), y + 1024)] : []));
-    else if (s.manual === "pedal") out.push(line(x2, y, x(13312), y - 4096));
-  }
-  if (s.mech !== "none") {
-    const y = s.manual !== "none" ? 4096 + TOP : 10240;
-    out.push(line(x(0), y, x(9216), y));
-    if (s.mech === "roller") out.push(`3 ${Math.round(x(11264))} ${y} 2048 0 2`);
-    else out.push(line(x(9216), y - 2048, x(9216), y + 2048));
+  if (s.pilot) { // pilot triangle on the lower row, fed from the side port at the outer edge
+    const yp = 26624, tip = x(0), base = x(5120);
+    out.push(line(tip, yp, base, yp - 2560), line(base, yp - 2560, base, yp + 2560), line(base, yp + 2560, tip, yp), line(base, yp, end, yp));
   }
   return out;
+}
+/** x of an actuator's link port (solenoid coil centre, roller) measured from the box edge */
+function linkAt(s: SideConfig, k: "sol" | "mech"): number {
+  const sl = slots(s).find((q) => q.k === k);
+  if (!sl) return 0;
+  return k === "sol" ? sl.o + (s.piloted ? SLOT.servo : 0) + 3584 : sl.o + 11264;
 }
 
 /** build the part (ports, properties, drawing) for a configuration */
 export function buildValve(cfg: ValveConfig, hydraulic: boolean): FluidPart {
   const ways = cfg.ways, bw = BW[ways], n = cfg.boxes.length;
   const types = cfg.boxes.map((id) => BOX_TYPES[ways].find((t) => t.id === id) || BOX_TYPES[ways][0]);
-  const L = SIDE, W = SIDE * 2 + n * bw;
+  const L = sideWidth(cfg.left), R = sideWidth(cfg.right), W = L + n * bw + R, E = L + n * bw;
   const cur = Math.min(Math.max(0, cfg.initial), n - 1), a0 = L + cur * bw; // ports sit under the initial box
   const sym: string[] = [];
   types.forEach((t, i) => sym.push(...drawBox(ways, L + i * bw, t)));
-  sym.push(...drawSide(cfg.left, L, -1, W), ...drawSide(cfg.right, L + n * bw, 1, W));
+  sym.push(...drawSide(cfg.left, L, -1, 0), ...drawSide(cfg.right, E, 1, W));
   const kind = hydraulic ? "HConnection" : "PConnection";
   const ports: FluidPort[] = PORTS[ways].map(([name, x, top]) => ({
     kind, x: a0 + x, y: top ? 0 : H, label: hydraulic && ways === 4 ? HYD_NAME[name] : name, ex: !hydraulic && isExhaust(name) ? "EX3" : "EX0",
@@ -173,25 +220,56 @@ export function buildValve(cfg: ValveConfig, hydraulic: boolean): FluidPart {
   PORTS[ways].forEach(([, x, top]) => sym.push(line(a0 + x, top ? 0 : H, a0 + x, top ? TOP : BOT)));
   if (cfg.left.pilot) ports.push({ kind, x: 0, y: 26624, label: "", ex: "EX0" });
   if (cfg.right.pilot) ports.push({ kind, x: W, y: 26624, label: "", ex: "EX0" });
-  if (cfg.left.solenoid) ports.push({ kind: "UEConnection", x: L - 5120, y: 18432, label: cfg.left.solLabel, ex: "" });
-  if (cfg.right.solenoid) ports.push({ kind: "UEConnection", x: L + n * bw + 5120, y: 18432, label: cfg.right.solLabel, ex: "" });
-  if (cfg.left.mech !== "none") ports.push({ kind: "UMConnection", x: L - 9216, y: 10240, label: cfg.left.mechLabel, ex: "" });
-  if (cfg.right.mech !== "none") ports.push({ kind: "UMConnection", x: L + n * bw + 9216, y: 10240, label: cfg.right.mechLabel, ex: "" });
+  if (cfg.left.solenoid) ports.push({ kind: "UEConnection", x: L - linkAt(cfg.left, "sol"), y: MID, label: cfg.left.solLabel, ex: "" });
+  if (cfg.right.solenoid) ports.push({ kind: "UEConnection", x: E + linkAt(cfg.right, "sol"), y: MID, label: cfg.right.solLabel, ex: "" });
+  if (cfg.left.mech !== "none") ports.push({ kind: "UMConnection", x: L - linkAt(cfg.left, "mech"), y: MID, label: cfg.left.mechLabel, ex: "" });
+  if (cfg.right.mech !== "none") ports.push({ kind: "UMConnection", x: E + linkAt(cfg.right, "mech"), y: MID, label: cfg.right.mechLabel, ex: "" });
   const act = (s: SideConfig, side: "L" | "R") => ({
     [`ACTUATION_${side}_EL_PN`]: s.solenoid ? `A${side}_PE1` : s.pilot ? `A${side}_PE2` : `A${side}N`,
     [`ACTUATION_${side}_MA`]: s.manual !== "none" ? `A${side}_MA1` : `A${side}N`,
     [`ACTUATION_${side}_ME`]: s.mech !== "none" ? `A${side}_ME2` : `A${side}N`,
-    [`SPRING_${side}`]: s.spring ? "TRUE" : "FALSE",
+    [`SPRING_${side}`]: s.spring && !s.pneuSpring ? "TRUE" : "FALSE",
   });
-  const posStr = (i: number) => `(${i + 1}\t${types[i].id})`;
+  if (cfg.reversible) // flow possible both ways: small arrows at the start of every flow line too
+    types.forEach((t, i) => t.groups.filter((g) => g.length === 2).forEach((g) => {
+      const a = L + i * bw, pos = new Map(PORTS[ways].map(([nm, x, top]) => [nm, { x: a + x, y: top ? TOP : BOT, top }]));
+      let [s0, e0] = g; if (e0 === "1" || isExhaust(s0)) [s0, e0] = [e0, s0];
+      const ps = pos.get(s0)!, pe = pos.get(e0)!;
+      if (ps.top !== pe.top) sym.push(arrowHead(pe.x, pe.y, ps.x, ps.y));
+    }));
+  // mirroring: flip the drawing and the ports; horizontally the sides and the box order swap too
+  const mh = !!cfg.mirrorH, mv = !!cfg.mirrorV;
+  const X = (v: number) => (mh ? W - v : v), Y = (v: number) => (mv ? H - v : v);
+  const symM = sym.map((p) => {
+    const t = p.split(" "), k = t.map(Number);
+    if (t[0] === "1" || t[0] === "2") return [t[0], X(k[1]), Y(k[2]), X(k[3]), Y(k[4]), ...t.slice(5)].join(" ");
+    if (t[0] === "5") return ["5", X(k[1]), Y(k[2]), X(k[3]), Y(k[4]), X(k[5]), Y(k[6]), X(k[7]), Y(k[8]), t[9]].join(" ");
+    if (t[0] === "3") return ["3", X(k[1]), Y(k[2]), ...t.slice(3)].join(" ");
+    if (t[0] === "4") { // arc: mirror the angles
+      let a0 = k[4] / 1000, a1 = k[5] / 1000;
+      if (mh) [a0, a1] = [180 - a1, 180 - a0];
+      if (mv) [a0, a1] = [-a1, -a0];
+      const nrm = (a: number) => Math.round((((a % 360) + 360) % 360) * 1000);
+      return ["4", X(k[1]), Y(k[2]), k[3], nrm(a0), nrm(a1)].join(" ");
+    }
+    return p;
+  });
+  const portsM = ports.map((q) => ({ ...q, x: X(q.x), y: Y(q.y) }));
+  const order = types.map((_, i) => (mh ? n - 1 - i : i)); // drawing position -> configured box
+  const posStr = (drawnAt: number) => `(${drawnAt + 1}\t${types[order[drawnAt]].id})`;
+  const curDrawn = mh ? n - 1 - cur : cur;
+  const [sl, sr] = mh ? [cfg.right, cfg.left] : [cfg.left, cfg.right];
+  const dom = cfg.dominant && cfg.dominant !== "none" ? (mh ? (cfg.dominant === "L" ? "R" : "L") : cfg.dominant) : "";
   const cls = (hydraulic ? "HWV_" : "WV_") + ways;
   return {
     cls, config: "gen:" + JSON.stringify(cfg), programs: [], domain: hydraulic ? "hyd" : "pneu", files: [],
-    description: cfg.name || `${ways}/${n}`, model: "", size: [W, H], ports, sym,
+    description: cfg.name || `${ways}/${n}`, model: "", size: [W, H], ports: portsM, sym: symM,
     props: {
-      ...act(cfg.left, "L"), ...act(cfg.right, "R"),
-      POS: posStr(cur), POS_RESET: posStr(cur), VALUECLASS: types.map((_, i) => posStr(i)).join(" "),
+      ...act(sl, "L"), ...act(sr, "R"),
+      PNEU_SPRING_L: sl.pneuSpring ? "TRUE" : "FALSE", PNEU_SPRING_R: sr.pneuSpring ? "TRUE" : "FALSE",
+      POS: posStr(curDrawn), POS_RESET: posStr(curDrawn), VALUECLASS: types.map((_, i) => posStr(i)).join(" "),
       BODY_COUNT: String(n), NN_FLOW: String(cfg.flow), description: cfg.name || "", GEN: "1",
+      ...(dom ? { DOMINANT_SIDE: dom } : {}), ...(cfg.reversible ? { REVERSIBLE: "TRUE" } : {}),
     },
     fields: {},
   };
@@ -199,7 +277,7 @@ export function buildValve(cfg: ValveConfig, hydraulic: boolean): FluidPart {
 
 /** best-effort reading of an existing valve (from a file or the library) into a configuration */
 export function configOf(part: FluidPart): ValveConfig {
-  if (part.config.startsWith("gen:")) { try { return JSON.parse(part.config.slice(4)); } catch { /* fall through */ } }
+  if (part.config.startsWith("gen:")) { try { const c = JSON.parse(part.config.slice(4)); return { ...c, left: { ...defaultSide(), ...c.left }, right: { ...defaultSide(), ...c.right } }; } catch { /* fall through */ } }
   const m = /WV_(\d)/.exec(part.cls), ways = Math.min(5, Math.max(2, m ? +m[1] : 5)) as Ways;
   const codes = [...(part.props.VALUECLASS || "").matchAll(/\(\d+\s+(\w+)\)/g)].map((x) => x[1]);
   const types = BOX_TYPES[ways];
@@ -208,15 +286,17 @@ export function configOf(part: FluidPart): ValveConfig {
   const side = (s: "L" | "R"): SideConfig => {
     const el = part.props[`ACTUATION_${s}_EL_PN`] || "", ma = part.props[`ACTUATION_${s}_MA`] || "", me = part.props[`ACTUATION_${s}_ME`] || "";
     const lbl = (k: string) => part.ports.find((q) => q.kind === k && (s === "L" ? q.x < part.size[0] / 2 : q.x >= part.size[0] / 2))?.label || "";
+    const pneu = part.props[`PNEU_SPRING_${s}`] === "TRUE";
     return {
-      spring: part.props[`SPRING_${s}`] === "TRUE" || part.props[`PNEU_SPRING_${s}`] === "TRUE",
+      spring: part.props[`SPRING_${s}`] === "TRUE" || pneu, pneuSpring: pneu, extSpring: false, piloted: false, extPilot: false,
       pilot: /PE2/.test(el), solenoid: /PE1/.test(el),
       manual: /MA/.test(ma) ? (/F$/.test(ma) ? "detent" : "button") : "none",
-      mech: /ME/.test(me) ? "roller" : "none",
+      mech: /ME1/.test(me) ? "plunger" : /ME3/.test(me) ? "idle" : /ME/.test(me) ? "roller" : "none",
       solLabel: lbl("UEConnection"), mechLabel: lbl("UMConnection"),
     };
   };
-  return { ways, boxes, initial: pos ? Math.min(boxes.length - 1, +pos[1] - 1) : 0, left: side("L"), right: side("R"), name: part.props.description || part.description || "", flow: parseFloat(part.props.NN_FLOW || "500") || 500 };
+  const AFL = parseFloat(part.props.NN_FLOW || part.props.AFL || "");
+  return { ways, boxes, initial: pos ? Math.min(boxes.length - 1, +pos[1] - 1) : 0, left: side("L"), right: side("R"), name: part.props.description || part.description || "", flow: AFL > 0 ? AFL : 500, dominant: "none", reversible: false, mirrorH: false, mirrorV: false };
 }
 
 /** a single box as a tiny part, for previews in the dialog */
@@ -224,6 +304,13 @@ export function boxPreview(ways: Ways, id: string): FluidPart {
   const t = BOX_TYPES[ways].find((x) => x.id === id) || BOX_TYPES[ways][0];
   return { cls: "box", config: "", programs: [], domain: "", files: [], description: "", model: "", size: [BW[ways], H], ports: [], props: {}, fields: {},
     sym: [...drawBox(ways, 0, t), ...PORTS[ways].map(([, x, top]) => line(x, top ? 0 : H, x, top ? TOP : BOT))] };
+}
+
+/** one side's actuator alone, for the icons of the dialog's actuator lists */
+export function sidePreview(s: Partial<SideConfig>, right = false): FluidPart {
+  const full = { ...defaultSide(), ...s }, W = Math.max(16384, sideWidth(full) - 2048);
+  const sym = [line(right ? 0 : W, TOP + 4096, right ? 0 : W, BOT - 4096), ...drawSide(full, right ? 0 : W, right ? 1 : -1, right ? W : 0)];
+  return { cls: "act", config: "", programs: [], domain: "", files: [], description: "", model: "", size: [W, H], ports: [], props: {}, fields: {}, sym };
 }
 
 /** port identity used to keep tubes attached when a valve is reconfigured */

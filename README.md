@@ -150,6 +150,13 @@ gradually.
 - **Network**: tubes and open valve paths form nets; a net is under pressure when it reaches
   a supply (air source, compressor, pump) and is not vented (exhaust ports 3/5/R, tank).
 - **Cylinders** extend/retract when one chamber is under pressure and the other vented.
+- **Valve configurator** (`src/fluid/valveGen.ts`, `ValveDialog.tsx`): like FluidSIM's *Configure valve*.
+  Each side: spring return, air spring, piloted (servo) solenoid, external supply, and three
+  symbol lists — muscular (general, push button, mushroom, lever, detent, pedal), mechanical
+  (plunger, roller, idle-return roller), pneumatic/electric (pilot pressure, solenoid). Body:
+  2/n…5/n, up to four positions, initial position, reversible; dominant signal (which side
+  wins when both act); nominal flow; horizontal/vertical mirror. Actuators are laid out side by
+  side outwards from the body.
 - **Cylinders** (`src/fluid/cylGen.ts`, `CylDialog.tsx`): a *Configure cylinder* dialog like FluidSIM's,
   with five tabs. *Configuration*: rod type (one, two, rodless with magnetic coupling or slide,
   through rod), single/double acting with return spring, cushioning, detection, mirror.

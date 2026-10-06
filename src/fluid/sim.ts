@@ -37,6 +37,8 @@ export interface ValveInfo {
   right: { kind: ActKind; port?: number };
   springL: boolean;
   springR: boolean;
+  /** side that wins when both are actuated */
+  dominant?: "L" | "R";
 }
 
 const near = (a: number, b: number, t = 700) => Math.abs(a - b) <= t;
@@ -126,6 +128,7 @@ function analyse(part: FluidPart): ValveInfo | null {
     left: side("L"), right: side("R"),
     springL: truthy(part.props.SPRING_L) || truthy(part.props.PNEU_SPRING_L),
     springR: truthy(part.props.SPRING_R) || truthy(part.props.PNEU_SPRING_R),
+    dominant: part.props.DOMINANT_SIDE === "L" || part.props.DOMINANT_SIDE === "R" ? part.props.DOMINANT_SIDE : undefined,
   };
   return info;
 }
@@ -338,7 +341,8 @@ export function solveFluid(comps: FComp[], tubes: Tube[], st: SimState, solenoid
       };
       const L = on("L"), R = on("R");
       let p = pos[c.id];
-      if (L && !R) p = 0;
+      if (L && R && v.dominant) p = v.dominant === "L" ? 0 : last;
+      else if (L && !R) p = 0;
       else if (R && !L) p = last;
       else if (!L && !R && (v.springL || v.springR)) p = v.reset;
       if (p !== pos[c.id]) { pos[c.id] = p; changed = true; }
