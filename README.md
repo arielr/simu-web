@@ -35,6 +35,70 @@ Outside claude.ai, **File → Save file** writes a `.cad` file directly. Inside 
 artifact the host only allows certain extensions, so `.cad` is delivered inside a `.zip`
 (see `src/platform/save.ts`).
 
+## Architecture
+
+```
+            index.html  →  Launcher (choose a program)
+                 │
+   ┌─────────────┼─────────────────────┐
+/electrical/  /pneumatic/        /hydraulic/        ← 3 separate pages (Vite multi-page)
+   │              └───────┬──────────┘
+ ui/App.tsx           fluid/FluidApp.tsx            ← editor + simulation
+   │                      │
+   ├── cad/  (.cad)       ├── ctFormat → ctImport (.ct)
+   ├── sim/solve.ts       ├── sim.ts (air/oil) + elec.ts (electrical)
+   └── ui/symbols         ├── symbols.tsx, valveGen + ValveDialog
+                          └── catalog.json (245 parts)
+   └──────────┬───────────┘
+          shared/                                    ← common UI, hooks, languages
+```
+
+### 1. Entry points (`src/entries/`)
+Four HTML pages, each with its own entry. The build splits shared code into `react` and
+`shared` chunks, so the browser loads it once for all programs. `SINGLE=1` bundles everything
+into one HTML file, with hash routing (`src/ui/Shell.tsx`).
+
+### 2. Shared layer (`src/shared/`)
+| File | Role |
+|---|---|
+| `ui.tsx` | Editor frame, toolbar pieces, zoom, language select, parts drawer with search, dialogs |
+| `hooks.ts` | Undo/redo, autosave, file saving, keyboard shortcuts, flash messages |
+| `i18n.ts` | Common English/Hebrew strings, remembered language |
+
+### 3. Electrical program (CADe SIMU)
+- `cad/format.ts` reads and writes `.cad` files.
+- `model/` holds part definitions and geometry.
+- `sim/solve.ts` is the simulator: connected nets, potentials, coils that energise, contacts that close.
+
+### 4. Fluid programs (FluidSIM)
+Pneumatics and hydraulics share the same code; only the catalog and colours differ.
+
+- **Reading `.ct`**: `ctFormat.ts` decodes the header, undoes the XOR and the LZ77
+  compression (FluidSIM 3 and 4); `ctImport.ts` turns the objects into parts and tubes.
+- **Drawing**: `symbols.tsx` draws the symbols as SVG from code.
+- **Simulation loop**, each step:
+  1. `elec.ts` solves the electrical circuit: relays, timers, counters, limit switches and
+     solenoids, linked by label (e.g. `K1`, `1Y1`).
+  2. `sim.ts` lets the energised solenoids switch the valves, builds pressure nets through
+     tubes and the paths inside valves, and decides what is under pressure and what is vented.
+  3. `stepCylinders` moves the pistons. When a piston reaches a mark on a distance rule, the
+     limit switch operates and the loop goes back to step 1.
+- **Valve configuration**: `valveGen.ts` + `ValveDialog.tsx` generate a valve from the
+  options chosen in the dialog (actuation per side, number of ports, switching positions,
+  initial position), like FluidSIM's *Configure valve*.
+
+### 5. Tools and tests
+- `tools/*.py`: Python scripts that build `catalog.json`; they also serve as a reference
+  implementation of the `.ct` decoder.
+- `tests/`: Vitest suites that load real files and run the simulation headless through
+  `src/fluid/run.ts`.
+
+### 6. Publishing
+Every push to `main` runs GitHub Actions: tests, build, deploy to GitHub Pages.
+
+**Guiding principle:** all simulation code is plain TypeScript with no React, so it is tested
+automatically without a browser; the UI layer only draws the state.
+
 ## Layout
 
 | Path | What it holds |
@@ -86,5 +150,7 @@ gradually.
 - **Network**: tubes and open valve paths form nets; a net is under pressure when it reaches
   a supply (air source, compressor, pump) and is not vented (exhaust ports 3/5/R, tank).
 - **Cylinders** extend/retract when one chamber is under pressure and the other vented.
+- **Electrical control** (`src/fluid/elec.ts`): relays, on-delay timers, counters, push
+  buttons, selector switches, limit switches on distance rules, solenoids, lamps and buzzers.
 - Not modelled yet: flow rates and pressures in bar, throttles (pass through), check-valve
-  direction, roller valves actuated by the cylinder, electrical parts inside fluid circuits.
+  direction.
