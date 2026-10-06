@@ -20,6 +20,7 @@ import type { FluidPart } from "./catalog";
 import type { FComp, Tube } from "./model";
 import { partOf } from "./model";
 import { physOf, marksOf } from "./cylGen";
+import type { CylMark } from "./cylGen";
 
 /* ---------------- valve analysis ---------------- */
 
@@ -231,22 +232,35 @@ const isExhaustPort = (part: FluidPart, i: number) => {
  * marks `labelN` at `posN` mm of the stroke; a valve whose mechanical port carries the same
  * label is actuated on that side while the cylinder is at the mark.
  */
-export function activeMarks(comps: FComp[], ext: Record<string, number>): Set<string> {
+/** marks of distance rules (R_SCHALT …), each attached to the nearest cylinder: cylinder id -> marks in mm */
+export function ruleMarks(comps: FComp[]): Map<string, CylMark[] & { rule?: string }> {
   const parts = comps.map((c) => ({ c, part: partOf(c)! })).filter((x) => x.part);
   const cyls = parts.filter(({ part }) => roleOf(part).kind === "cyl");
-  const on = new Set<string>();
   const centre = (c: FComp, p: FluidPart) => [c.x + p.size[0] / 2, c.y + p.size[1] / 2];
-  const active = new Set<string>();
+  const out = new Map<string, CylMark[] & { rule?: string }>();
   for (const { c, part } of parts) {
     if (!("label0" in part.props) || !cyls.length) continue;
     const [x, y] = centre(c, part);
     const cyl = cyls.reduce((a, b) => { const pa = centre(a.c, a.part), pb = centre(b.c, b.part); return Math.hypot(pb[0] - x, pb[1] - y) < Math.hypot(pa[0] - x, pa[1] - y) ? b : a; });
-    // mark positions are in mm along the stroke of the cylinder
-    const hub = parseFloat(cyl.part.props.HUB || "100") || 100, e = (ext[cyl.c.id] ?? 0) * hub;
+    const list = out.get(cyl.c.id) || Object.assign([] as CylMark[], { rule: c.id });
     for (let i = 0; `label${i}` in part.props; i++) {
-      const pos = parseFloat(part.props[`pos${i}`] || "0");
-      if (Math.abs(e - pos) <= Math.max(0.5, hub * 0.025)) active.add(part.props[`label${i}`]);
+      const mm = parseFloat(part.props[`pos${i}`] || "0") || 0;
+      if (part.props[`label${i}`]) list.push({ label: part.props[`label${i}`], start: mm, end: mm });
     }
+    out.set(cyl.c.id, list);
+  }
+  return out;
+}
+
+export function activeMarks(comps: FComp[], ext: Record<string, number>): Set<string> {
+  const parts = comps.map((c) => ({ c, part: partOf(c)! })).filter((x) => x.part);
+  const cyls = parts.filter(({ part }) => roleOf(part).kind === "cyl");
+  const active = new Set<string>();
+  // distance-rule marks: positions in mm along the stroke of the cylinder
+  for (const [id, ms] of ruleMarks(comps)) {
+    const cyl = cyls.find((x) => x.c.id === id)!;
+    const hub = parseFloat(cyl.part.props.HUB || "100") || 100, e = (ext[id] ?? 0) * hub;
+    for (const m of ms) if (Math.abs(e - m.start) <= Math.max(0.5, hub * 0.025)) active.add(m.label);
   }
   // marks configured on the cylinder itself (start..end in mm)
   for (const { c, part } of cyls) {

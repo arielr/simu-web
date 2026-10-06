@@ -9,7 +9,7 @@ import { FluidSymbol } from "./symbols";
 import { fluidName } from "./names";
 import { FS } from "./strings";
 import { importCt } from "./ctImport";
-import { solveFluid, moveCylinders, emptySim, startSim, clickAction, roleOf, valveInfo, activeMarks, SimState } from "./sim";
+import { solveFluid, moveCylinders, ruleMarks, emptySim, startSim, clickAction, roleOf, valveInfo, activeMarks, SimState } from "./sim";
 import { CylDialog } from "./CylDialog";
 import { buildCyl, cylConfigOf, cylPortRoles, defaultCyl, isGenCyl, shapeKey, withParams, CylConfig, CylMark } from "./cylGen";
 import { ValveDialog } from "./ValveDialog";
@@ -285,23 +285,15 @@ export function FluidApp({ domain, onHome }: { domain: FluidDomain; onHome?: () 
     }));
   };
   const isValve = (c?: FComp) => !!c && /^H?WV_\d/.test(partOf(c)?.cls || "");
+  const rMarks = useMemo(() => ruleMarks(comps), [comps]);
   const isCyl = (c?: FComp) => !!c && !!partOf(c) && roleOf(partOf(c)!).kind === "cyl";
   /** open the cylinder dialog; marks of a distance rule next to it are shown as its marks */
   const openCyl = (id: string) => {
     const c = comps.find((k) => k.id === id); if (!c) return;
-    const part = partOf(c)!, init = cylConfigOf(part);
-    const cyls = comps.filter(isCyl), ctr = (k: FComp) => { const p = partOf(k)!; const [w, h] = rotSize(p, k.rot); return [k.x + w / 2, k.y + h / 2]; };
-    let rule: string | undefined, ruleMarks: CylMark[] | undefined;
-    if (!init.marks.length) for (const k of comps) {
-      const p = partOf(k); if (!p || !("label0" in p.props)) continue;
-      const [x, y] = ctr(k);
-      const near = cyls.reduce((a, b) => (Math.hypot(ctr(b)[0] - x, ctr(b)[1] - y) < Math.hypot(ctr(a)[0] - x, ctr(a)[1] - y) ? b : a));
-      if (near.id !== id) continue;
-      rule = k.id; ruleMarks = [];
-      for (let i = 0; `label${i}` in p.props; i++) { const mm = parseFloat(p.props[`pos${i}`] || "0"); ruleMarks.push({ label: p.props[`label${i}`], start: mm, end: mm }); }
-      init.marks = ruleMarks;
-      break;
-    }
+    const init = cylConfigOf(partOf(c)!);
+    const rm = init.marks.length ? undefined : rMarks.get(id);
+    const rule = rm?.rule, ruleMarks = rm ? rm.map((m) => ({ ...m })) : undefined;
+    if (ruleMarks) init.marks = ruleMarks.map((m) => ({ ...m }));
     setCdlg({ id, init, rule, ruleMarks });
   };
   const applyCyl = (cfg: CylConfig) => {
@@ -438,7 +430,7 @@ export function FluidApp({ domain, onHome }: { domain: FluidDomain; onHome?: () 
             return (<g key={c.id} data-cid={c.id} transform={`translate(${c.x},${c.y})`} style={{ cursor: simRes ? (clickable ? "pointer" : undefined) : tool === "select" ? "move" : undefined }}>
               <rect x={-800} y={-800} width={w + 1600} height={h + 1600} fill="transparent" stroke={isSel ? "var(--sel)" : "none"} strokeWidth={300} strokeDasharray="1200 800" rx={800} />
               <g transform={rotTransform(part, c.rot)}>
-                <g transform={shift ? `translate(${shift},0)` : undefined}><FluidSymbol part={part} ext={sim.ext[c.id] ?? (simRes ? 0 : restExt(part))} st={elRes ? { closed: elRes.closed.has(c.id), on: elRes.on.has(c.id) } : eKind(part).k === "contact" && (eKind(part) as any).nc ? { closed: true } : undefined} /></g>
+                <g transform={shift ? `translate(${shift},0)` : undefined}><FluidSymbol part={part} marks={rMarks.get(c.id)} ext={sim.ext[c.id] ?? (simRes ? 0 : restExt(part))} st={elRes ? { closed: elRes.closed.has(c.id), on: elRes.on.has(c.id) } : eKind(part).k === "contact" && (eKind(part) as any).nc ? { closed: true } : undefined} /></g>
                 {/* the switched valve slides; ports stay put, so pilot/side connections stretch to follow it */}
                 {shift !== 0 && part.ports.map((q, i) => (q.kind === fluidKind && q.y > 1200 && q.y < part.size[1] - 1200 && used.has(c.id + ":" + i))
                   ? <line key={"st" + i} x1={q.x} y1={q.y} x2={q.x + shift} y2={q.y} stroke="currentColor" strokeWidth={330} /> : null)}

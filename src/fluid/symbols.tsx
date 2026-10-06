@@ -13,6 +13,7 @@
 import type { ReactNode } from "react";
 import type { FluidPart } from "./catalog";
 import { cylOverlay } from "./cylGen";
+import type { CylMark } from "./cylGen";
 
 export const STROKE = 330;
 
@@ -92,6 +93,8 @@ const motorSym = (h: number, cx: number) => {
 };
 
 const BUILTIN: Record<string, (w: number, h: number) => ReactNode[]> = {
+  // distance rule: the marks are drawn above the cylinder it belongs to
+  R_SCHALT: (w, h) => [L(0, h / 2, w, h / 2, "l", true), ...[0, 0.25, 0.5, 0.75, 1].map((f, i) => L(w * f, h / 2 - (i % 2 ? 900 : 1600), w * f, h / 2 + (i % 2 ? 900 : 1600), "t" + i))],
   // logic elements (two-pressure valve = AND, shuttle valve = OR): body + inputs at the sides, output on the third side
   PVS3: (w, h) => [<rect key="b" x={w * 0.25} y={h * 0.35} width={w * 0.5} height={h * 0.45} fill="none" />, L(0, 24576, w * 0.25, 24576, "i1"), L(w * 0.75, 24576, w, 24576, "i2"),
     L(w / 2, 0, w / 2, h * 0.35, "o"), <text key="t" x={w / 2} y={h * 0.6} fontSize={7000} stroke="none" fill="currentColor" textAnchor="middle" dominantBaseline="middle">&amp;</text>],
@@ -142,9 +145,9 @@ const BUILTIN: Record<string, (w: number, h: number) => ReactNode[]> = {
 
 /** pistons and rods: FluidSIM draws them in code so they can move. ext: 0 = retracted, 1 = extended */
 /** moving parts of a cylinder (piston, rod, carriage, spring, marks) */
-export function cylinderParts(part: FluidPart, ext = 0): ReactNode[] | null {
+export function cylinderParts(part: FluidPart, ext = 0, marks: CylMark[] = []): ReactNode[] | null {
   if (!/^(Cyl|Zylinder)/.test(part.cls) || !part.sym.length) return null;
-  return cylOverlay(part, ext).map((l, i) => prim(l, 10000 + i));
+  return cylOverlay(part, ext, marks).map((l, i) => prim(l, 10000 + i));
 }
 
 /** builtin drawings made for a vertical part; FluidSIM stores these classes horizontally */
@@ -215,14 +218,14 @@ function electrical(part: FluidPart, st: EState): ReactNode[] | null {
 export function hasBuiltin(cls: string) { return !!BUILTIN[cls]; }
 
 /** the symbol of a part, unrotated, in its own coordinates */
-export function FluidSymbol({ part, label, ext = 0, st = {} }: { part: FluidPart; label?: string; ext?: number; st?: EState }) {
+export function FluidSymbol({ part, label, ext = 0, st = {}, marks }: { part: FluidPart; label?: string; ext?: number; st?: EState; marks?: CylMark[] }) {
   const [w, h] = part.size;
   const b = BUILTIN[part.cls];
   let body: ReactNode;
   const own = part.sym.length > 0;
   const el = !own ? electrical(part, st) : null;
   if (el) body = el;
-  else if (own) body = [...part.sym.map(prim), ...(cylinderParts(part, ext) || [])];
+  else if (own) body = [...part.sym.map(prim), ...(cylinderParts(part, ext, marks) || [])];
   else if (b && VERTICAL.has(part.cls) && w > h) body = <g transform={`translate(0,${h}) rotate(-90)`}>{b(h, w)}</g>;
   else if (b) body = b(w, h);
   else body = [<rect key="r" x={0} y={0} width={w} height={h} fill="none" strokeDasharray="1200 900" />,

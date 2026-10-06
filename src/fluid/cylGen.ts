@@ -72,7 +72,7 @@ const r = Math.round;
 const ln = (x1: number, y1: number, x2: number, y2: number) => `1 ${r(x1)} ${r(y1)} ${r(x2)} ${r(y2)}`;
 const dash = (x1: number, y1: number, x2: number, y2: number) => `2 ${r(x1)} ${r(y1)} ${r(x2)} ${r(y2)} 0 0 3`;
 const fill = (x1: number, y1: number, x2: number, y2: number) => `5 ${r(x1)} ${r(y1)} ${r(x2)} ${r(y1)} ${r(x2)} ${r(y2)} ${r(x1)} ${r(y2)} 0`;
-const text = (x: number, y: number, t: string) => `7 ${r(x)} ${r(y)} 10 0 0 0 0 ${t}`;
+const text = (x: number, y: number, t: string, size = 10) => `7 ${r(x)} ${r(y)} ${size} 0 0 0 0 ${t}`;
 const rodYs = (rod: RodType) => (rod === "two" ? [7168, 17408] : rod === "one" ? [MIDY] : []);
 
 /** mirror mapping of a primitive line (x/y pairs; circles and text keep their size) */
@@ -232,10 +232,10 @@ export function marksOf(part: FluidPart): CylMark[] {
  * Piston, rod, carriage, spring, cushions and marks for an extension 0..1,
  * as SYM primitives in the part's own (unrotated) coordinates.
  */
-export function cylOverlay(part: FluidPart, ext: number): string[] {
+export function cylOverlay(part: FluidPart, ext: number, extra: CylMark[] = []): string[] {
   const [w, h] = part.size, gen = isGenCyl(part);
   const stroke = num(part.props.HUB, 100);
-  const marks = marksOf(part);
+  const marks = [...marksOf(part), ...extra];
   const out: string[] = [];
   let tip: (e: number) => number, rulerY: number, top = 0, bot = BH;
   if (gen) {
@@ -299,9 +299,9 @@ function rulerPrims(marks: CylMark[], stroke: number, tip: (e: number) => number
   const at = (mm: number) => tip(Math.max(0, Math.min(1, mm / stroke)));
   for (const m of marks) {
     const a = at(Math.min(m.start, m.end)), b = at(Math.max(m.start, m.end));
-    out.push(ln(a, y - 1400, a, y + 1400));
-    if (b - a > 300) out.push(ln(b, y - 1400, b, y + 1400), fill(a, y - 500, b, y + 500));
-    out.push(text((a + b) / 2, y - 3600, m.label));
+    out.push(ln(a, y - 1800, a, y + 1800));
+    if (b - a > 300) out.push(ln(b, y - 1800, b, y + 1800), fill(a, y - 500, b, y + 500));
+    out.push(text((a + b) / 2, y - 4400, m.label, 15));
   }
   return out;
 }
