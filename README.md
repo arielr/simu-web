@@ -118,6 +118,19 @@ automatically without a browser; the UI layer only draws the state.
 | `src/examples/files/` | Sample and test `.cad` files made in CADe SIMU. |
 | `tests/` | Vitest suites. |
 
+## Electrical editor: selecting several items
+
+- Shift/Ctrl+click adds or removes a part or wire; dragging on the empty sheet selects an area
+  (parts whose terminals are all inside, wires with both ends inside); Ctrl+A selects all.
+  The middle mouse button scrolls the sheet.
+- Dragging a selected item moves the whole selection; wires that end on a moved part's terminal
+  follow it. R rotates, Del deletes, Ctrl+D duplicates.
+- Ctrl+C / Ctrl+X / Ctrl+V use the system clipboard: the selection is put there as a small
+  CADe SIMU `.cad` text (plus the editor's own format), so it can be pasted into another
+  SIMU Web tab, and a `.cad` text copied from anywhere can be pasted into the sheet.
+- To bring a selection into CADe SIMU: *Save selection as .cad*, open that file in CADe SIMU,
+  select all, copy, and paste into the target drawing.
+
 ## CADe SIMU file format (what is known)
 
 - Text file, Windows-1252, no line breaks: `CADe_SIMU` + records + footer starting at `$$$`.

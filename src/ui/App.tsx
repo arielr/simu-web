@@ -29,6 +29,10 @@ export function App({onHome}={}){
   const [mode,setMode]=useState('edit');
   const [tool,setTool]=useState('select');
   const [sel,setSel]=useState(null);
+  /* multi-selection (2+ items): ids of parts and wires; sel stays the single item shown in the inspector */
+  const [msel,setMsel]=useState({cs:[],ws:[]});
+  const [band,setBand]=useState(null);
+  const clip=useRef(null);
   const [wStart,setWStart]=useState(null);
   const [hover,setHover]=useState(null);
   const [vFirst,setVFirst]=useState(false);
@@ -87,18 +91,47 @@ export function App({onHome}={}){
       if(!wStart){setWStart(P.g);return;}
       if(key(wStart)!==key(P.g)){snap();setWires(ws=>[...ws,{id:nid('w'),a:wStart,b:P.g,v:vFirst,kind:'ph'}]);}
       setWStart(P.g);return;}
-    if(cEl){const c=comps.find(x=>x.id===cEl.dataset.cid);setSel({k:'c',id:c.id});
-      drag.current={id:c.id,dx:P.g[0]-c.x,dy:P.g[1]-c.y,moved:false};svgRef.current.setPointerCapture(e.pointerId);return;}
-    if(wEl){setSel({k:'w',id:wEl.dataset.wid});return;}
-    setSel(null);startPan(e);
+    const add=e.shiftKey||e.ctrlKey||e.metaKey;
+    if(e.button===1){startPan(e);return;}
+    if(cEl||wEl){const k=cEl?'c':'w',id=cEl?cEl.dataset.cid:wEl.dataset.wid;
+      if(add){toggleSel(k,id);return;}
+      if(!(k==='c'?isSelC(id):isSelW(id))){if(k==='c')setSelection([id],[]);else setSelection([],[id]);}
+      // drag everything selected (or just this item); wire ends on the moved parts' terminals follow
+      const S=(k==='c'?isSelC(id):isSelW(id))?selSet():{cs:k==='c'?[id]:[],ws:k==='w'?[id]:[]};
+      const moving=new Set(S.cs),pins=new Set();comps.forEach(c=>{if(moving.has(c.id))pinsOf(c).forEach(p=>pins.add(key(p)));});
+      const ends=[];wires.forEach(w=>{if(S.ws.includes(w.id))return;if(pins.has(key(w.a)))ends.push([w.id,'a']);if(pins.has(key(w.b)))ends.push([w.id,'b']);});
+      drag.current={group:true,start:P.g,cs:comps.filter(c=>moving.has(c.id)).map(c=>({id:c.id,x:c.x,y:c.y})),ws:wires.filter(w=>S.ws.includes(w.id)).map(w=>({id:w.id,a:w.a,b:w.b})),
+        ends:ends.map(([wid,end])=>({wid,end,p:wires.find(w=>w.id===wid)[end]})),moved:false,last:[0,0]};
+      svgRef.current.setPointerCapture(e.pointerId);return;}
+    // empty sheet: draw a selection rectangle
+    if(!add)clearSel();
+    drag.current={band:true,add,base:selSet(),a:[P.x,P.y]};setBand({a:[P.x,P.y],b:[P.x,P.y]});svgRef.current.setPointerCapture(e.pointerId);
   };
   const startPan=e=>{const s=stageRef.current;drag.current={pan:true,x:e.clientX,y:e.clientY,l:s.scrollLeft,t:s.scrollTop};svgRef.current.setPointerCapture(e.pointerId);};
   const onMove=e=>{const P=pt(e);setHover(P.g);const d=drag.current;if(!d)return;
     if(d.pan){const s=stageRef.current;s.scrollLeft=d.l-(e.clientX-d.x);s.scrollTop=d.t-(e.clientY-d.y);return;}
-    const nx=P.g[0]-d.dx,ny=P.g[1]-d.dy;
-    setComps(cs=>{const c=cs.find(x=>x.id===d.id);if(!c||(c.x===nx&&c.y===ny))return cs;if(!d.moved){d.moved=true;snap();}return cs.map(x=>x.id===d.id?{...x,x:nx,y:ny}:x);});
+    if(d.band){setBand({a:d.a,b:[P.x,P.y]});return;}
+    if(d.group){
+      let dx=P.g[0]-d.start[0],dy=P.g[1]-d.start[1];
+      const xs=[...d.cs.map(c=>c.x),...d.ws.flatMap(w=>[w.a[0],w.b[0]])],ys=[...d.cs.map(c=>c.y),...d.ws.flatMap(w=>[w.a[1],w.b[1]])];
+      dx=Math.max(-Math.min(...xs),Math.min(W-Math.max(...xs),dx));dy=Math.max(-Math.min(...ys),Math.min(H-Math.max(...ys),dy));
+      if(dx===d.last[0]&&dy===d.last[1])return;d.last=[dx,dy];
+      if(!d.moved){d.moved=true;snap();}
+      const cm=new Map(d.cs.map(c=>[c.id,c])),wm=new Map(d.ws.map(w=>[w.id,w]));
+      setComps(cs=>cs.map(x=>cm.has(x.id)?{...x,x:cm.get(x.id).x+dx,y:cm.get(x.id).y+dy}:x));
+      setWires(ws=>ws.map(w=>{const o=wm.get(w.id);if(o)return {...w,a:[o.a[0]+dx,o.a[1]+dy],b:[o.b[0]+dx,o.b[1]+dy]};
+        const es=d.ends.filter(q=>q.wid===w.id);if(!es.length)return w;const n={...w};es.forEach(q=>{n[q.end]=[q.p[0]+dx,q.p[1]+dy];});return n;}));
+    }
   };
-  const onUp=()=>{drag.current=null;};
+  const onUp=()=>{const d=drag.current;drag.current=null;
+    if(d&&d.band){setBand(null);
+      const [ax,ay]=d.a,[bx,by]=band?band.b:d.a;const x0=Math.min(ax,bx)/G,x1=Math.max(ax,bx)/G,y0=Math.min(ay,by)/G,y1=Math.max(ay,by)/G;
+      if(x1-x0<0.3&&y1-y0<0.3)return; // a click, not a rectangle
+      const inside=p=>p[0]>=x0&&p[0]<=x1&&p[1]>=y0&&p[1]<=y1;
+      const cs=comps.filter(c=>inside([c.x,c.y])&&pinsOf(c).every(inside)).map(c=>c.id),ws=wires.filter(w=>inside(w.a)&&inside(w.b)).map(w=>w.id);
+      const base=d.add?d.base:{cs:[],ws:[]};
+      const allC=[...new Set([...base.cs,...cs])],allW=[...new Set([...base.ws,...ws])];
+      if(allC.length+allW.length)setSelection(allC,allW);else clearSel();}};
 
   const del=()=>{if(!sel)return;snap();if(sel.k==='c')setComps(cs=>cs.filter(c=>c.id!==sel.id));else setWires(ws=>ws.filter(w=>w.id!==sel.id));setSel(null);};
   const rot=()=>{if(sel?.k!=='c')return;const c=comps.find(x=>x.id===sel.id);if(['src','raw'].includes(DEFS[c.type].kind))return;snap();setComps(cs=>cs.map(x=>x.id===sel.id?{...x,rot:((x.rot|0)+1)%4}:x));};
@@ -106,15 +139,76 @@ export function App({onHome}={}){
   const upd=(id,patch)=>setComps(cs=>cs.map(x=>x.id===id?{...x,...patch}:x));
   const updW=(id,patch)=>setWires(ws=>ws.map(x=>x.id===id?{...x,...patch}:x));
 
+  /* ---- selection of several items ---- */
+  const multi=msel.cs.length+msel.ws.length>1;
+  const selSet=()=>multi?msel:sel?{cs:sel.k==='c'?[sel.id]:[],ws:sel.k==='w'?[sel.id]:[]}:{cs:[],ws:[]};
+  const isSelC=id=>multi?msel.cs.includes(id):sel?.k==='c'&&sel.id===id;
+  const isSelW=id=>multi?msel.ws.includes(id):sel?.k==='w'&&sel.id===id;
+  const clearSel=()=>{setSel(null);setMsel({cs:[],ws:[]});};
+  const setSelection=(cs,ws)=>{if(cs.length+ws.length===1){setMsel({cs:[],ws:[]});setSel(cs.length?{k:'c',id:cs[0]}:{k:'w',id:ws[0]});}
+    else{setMsel({cs,ws});setSel(null);}};
+  const toggleSel=(k,id)=>{const cur=selSet();const cs=[...cur.cs],ws=[...cur.ws];const arr=k==='c'?cs:ws;const i=arr.indexOf(id);if(i>=0)arr.splice(i,1);else arr.push(id);
+    if(!cs.length&&!ws.length)clearSel();else setSelection(cs,ws);};
+  const selectAll=()=>setSelection(comps.map(c=>c.id),wires.map(w=>w.id));
+  /** the selected parts and wires (copies) */
+  const selItems=()=>{const S=selSet();return {comps:comps.filter(c=>S.cs.includes(c.id)),wires:wires.filter(w=>S.ws.includes(w.id))};};
+  /** a .cad file holding only the given items (CADe SIMU opens it; copy from there into another drawing) */
+  const cadOf=(cs,ws)=>{const segs=[];ws.forEach(w=>{const e=elbow(w);if(key(e)===key(w.a)||key(e)===key(w.b))segs.push({...w,cad:null});else{segs.push({...w,b:e,cad:null});segs.push({...w,a:e,cad:null});}});
+    const uf=wireNet(cs,ws);const ids={};let n=0;const netOf=p=>{if(!p||!uf.p.has(key(p)))return 0;const r=uf.f(key(p));return ids[r]??(ids[r]=++n);};
+    return writeCad({comps:cs,wires:segs,dots:[],order:null,footer:null,netOf,pinsOf}).text;};
+  const copySel=(ev)=>{const it=selItems();if(!it.comps.length&&!it.wires.length)return false;
+    clip.current=JSON.parse(JSON.stringify(it));try{localStorage.setItem('simu-web-clip',JSON.stringify(clip.current));}catch(e){}
+    const cad=cadOf(it.comps,it.wires);
+    if(ev&&ev.clipboardData){ev.clipboardData.setData('text/plain',cad);ev.clipboardData.setData('application/x-simu-web',JSON.stringify(it));ev.preventDefault();}
+    else navigator.clipboard?.writeText(cad).catch(()=>{});
+    setMsg(t.copiedN(it.comps.length+it.wires.length));return true;};
+  /** paste items (from our clipboard or a .cad text), placed at the pointer or just next to the originals */
+  const pasteItems=(it)=>{if(!it||(!it.comps?.length&&!it.wires?.length))return;
+    const xs=[...it.comps.map(c=>c.x),...it.wires.flatMap(w=>[w.a[0],w.b[0]])],ys=[...it.comps.map(c=>c.y),...it.wires.flatMap(w=>[w.a[1],w.b[1]])];
+    const x0=Math.min(...xs),y0=Math.min(...ys),x1=Math.max(...xs),y1=Math.max(...ys);
+    let dx=hover?hover[0]-x0:2,dy=hover?hover[1]-y0:2;
+    if(!hover||(dx===0&&dy===0)){dx=2;dy=2;}
+    dx=Math.max(-x0,Math.min(W-x1,dx));dy=Math.max(-y0,Math.min(H-y1,dy));
+    snap();const nc=it.comps.filter(c=>DEFS[c.type]).map(c=>({...c,id:nid('c'),x:c.x+dx,y:c.y+dy}));
+    const nw=it.wires.map(w=>({kind:'ph',...w,id:nid('w'),a:[w.a[0]+dx,w.a[1]+dy],b:[w.b[0]+dx,w.b[1]+dy],cad:null}));
+    setComps(cs=>[...cs,...nc]);setWires(ws=>[...ws,...nw]);setSelection(nc.map(c=>c.id),nw.map(w=>w.id));};
+  const pasteText=txt=>{
+    if(!txt)return false;
+    if(txt.startsWith('CADe_SIMU')){try{const d=parseCad(txt);pasteItems({comps:d.comps,wires:d.wires});return true;}catch(e){return false;}}
+    try{const d=JSON.parse(txt);if(Array.isArray(d.comps)&&Array.isArray(d.wires)){pasteItems(d);return true;}}catch(e){}
+    return false;};
+  const duplicate=()=>{const it=selItems();if(it.comps.length||it.wires.length){const h=hover;pasteItems(JSON.parse(JSON.stringify(it)));}};
+  const delSel=()=>{const S=selSet();if(!S.cs.length&&!S.ws.length)return;snap();setComps(cs=>cs.filter(c=>!S.cs.includes(c.id)));setWires(ws=>ws.filter(w=>!S.ws.includes(w.id)));clearSel();};
+  const rotSel=()=>{const S=selSet();const ids=S.cs.filter(id=>{const c=comps.find(x=>x.id===id);return c&&!['src','raw'].includes(DEFS[c.type].kind);});if(!ids.length)return;snap();setComps(cs=>cs.map(x=>ids.includes(x.id)?{...x,rot:((x.rot|0)+1)%4}:x));};
+  const saveSelCad=async()=>{const it=selItems();if(!dl){setMsg(t.noSave);return;}try{const ok=await dl.saveCad(safeName((name||t.untitled)+'-'+t.selFile),cadOf(it.comps,it.wires));if(ok)setMsg(t.saved);}catch(err){if(err&&err.code==='declined')return;setMsg(t.noSave);}};
+  /* copy / cut / paste through the system clipboard (keyboard shortcuts and menu); text fields keep their own */
+  useEffect(()=>{
+    const inField=()=>{const a=document.activeElement;return a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.tagName==='SELECT'||a.isContentEditable);};
+    const onCopy=e=>{if(mode!=='edit'||dlg||inField())return;copySel(e);};
+    const onCut=e=>{if(mode!=='edit'||dlg||inField())return;if(copySel(e))delSel();};
+    const onPaste=e=>{if(mode!=='edit'||dlg||inField())return;const d=e.clipboardData;
+      const own=d&&d.getData('application/x-simu-web');
+      if(own){e.preventDefault();pasteText(own);return;}
+      const txt=d&&d.getData('text/plain');
+      if(txt&&pasteText(txt.trim())){e.preventDefault();return;}
+      if(clip.current){e.preventDefault();pasteItems(JSON.parse(JSON.stringify(clip.current)));}};
+    document.addEventListener('copy',onCopy);document.addEventListener('cut',onCut);document.addEventListener('paste',onPaste);
+    return()=>{document.removeEventListener('copy',onCopy);document.removeEventListener('cut',onCut);document.removeEventListener('paste',onPaste);};
+  });
+
   useKeys(e=>{if(dlg)return;
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undo();return;}
     if(mode!=='edit')return;
-    if(e.key==='Delete'||e.key==='Backspace')del();
-    else if(e.key==='r'||e.key==='R'||e.key==='ר')rot();
+    const mod=e.ctrlKey||e.metaKey,k=e.key.toLowerCase();
+    if(mod&&(k==='a'||k==='ש')){e.preventDefault();selectAll();return;}
+    if(mod&&(k==='d'||k==='ג')){e.preventDefault();duplicate();return;}
+    if(mod)return; // copy, cut and paste arrive as clipboard events
+    if(e.key==='Delete'||e.key==='Backspace')delSel();
+    else if(e.key==='r'||e.key==='R'||e.key==='ר')rotSel();
     else if(e.key==='f'||e.key==='F'||e.key==='כ')flip();
     else if(e.key==='w'||e.key==='W'||e.key==="'"){setTool('wire');setWStart(null);}
     else if(e.key==='Shift')setVFirst(v=>!v);
-    else if(e.key==='Escape'){setWStart(null);setTool('select');}});
+    else if(e.key==='Escape'){setWStart(null);setTool('select');clearSel();}});
 
   const dots=useMemo(()=>{const cnt={},out=[];const segs=[];wires.forEach(w=>{const e=elbow(w);segs.push([w.a,e,w.id],[e,w.b,w.id]);});
     const ends=[];wires.forEach(w=>{ends.push([w.a,w.id],[w.b,w.id]);});comps.forEach(c=>pinsOf(c).forEach(p=>ends.push([p,c.id])));
@@ -202,7 +296,7 @@ export function App({onHome}={}){
           </g>
 
           {wires.map(w=>{const e=elbow(w);const col=wireStroke(w);const pts=`${w.a[0]*G},${w.a[1]*G} ${e[0]*G},${e[1]*G} ${w.b[0]*G},${w.b[1]*G}`;
-            const isSel=sel?.k==='w'&&sel.id===w.id;const live=res&&nodeColor(w.a);
+            const isSel=isSelW(w.id);const live=res&&nodeColor(w.a);
             return (<g key={w.id} data-wid={w.id}>
               <polyline points={pts} fill="none" stroke="transparent" strokeWidth="12"/>
               {isSel&&(<polyline points={pts} fill="none" stroke="var(--sel)" strokeWidth="7" opacity=".35" strokeLinejoin="round"/>)}
@@ -218,7 +312,7 @@ export function App({onHome}={}){
               else if(d.kind==='contact')s.closed=closed(c,inp,res.coils);
               s.pressed=!!inp.press[c.id];s.tripped=!!inp.trip[c.id]||!!(inp.tripTag&&inp.tripTag[c.tag]);}
             else{s.closed=NC_TYPES.includes(c.type)||d.fam==='fu'||d.toggle==='off';}
-            const isSel=sel?.k==='c'&&sel.id===c.id;
+            const isSel=isSelC(c.id);
             const hit=s.big?{x:s.big[0],y:s.big[1],width:s.big[2],height:s.big[3]}:s.line?{x:Math.min(0,s.line[0])-4,y:Math.min(0,s.line[1])-4,width:Math.abs(s.line[0])+8,height:Math.abs(s.line[1])+8}:d.box||BOX2;
             const interactive=mode==='sim'&&(['pb','th'].includes(d.act)||!!d.latch||!!d.toggle||!!d.trip);const linked=mode==='sim'&&!!d.link;
             return (<g key={c.id} data-cid={c.id} transform={`translate(${c.x*G},${c.y*G})${c.rot?` rotate(${90*c.rot})`:''}`} style={{cursor:interactive?'pointer':linked?'help':mode==='edit'&&tool==='select'?'move':null}}>
@@ -234,6 +328,7 @@ export function App({onHome}={}){
           {mode==='edit'&&tool==='wire'&&wStart&&hover&&(()=>{const w={a:wStart,b:hover,v:vFirst};const e=elbow(w);
             return (<polyline points={`${w.a[0]*G},${w.a[1]*G} ${e[0]*G},${e[1]*G} ${w.b[0]*G},${w.b[1]*G}`} fill="none" stroke="var(--accent)" strokeWidth="2" strokeDasharray="5 4" pointerEvents="none"/>);})()}
           {mode==='edit'&&(tool!=='select')&&hover&&(<circle cx={hover[0]*G} cy={hover[1]*G} r="5" fill="none" stroke="var(--accent)" strokeWidth="2" pointerEvents="none"/>)}
+          {band&&(<rect x={Math.min(band.a[0],band.b[0])} y={Math.min(band.a[1],band.b[1])} width={Math.abs(band.b[0]-band.a[0])} height={Math.abs(band.b[1]-band.a[1])} fill="color-mix(in srgb,var(--sel) 10%,transparent)" stroke="var(--sel)" strokeDasharray="5 4" pointerEvents="none"/>)}
           {placing&&hover&&(<g transform={`translate(${hover[0]*G},${hover[1]*G})`} opacity=".45" pointerEvents="none"><Sym type={placing}/></g>)}
         </svg>
       </div>
@@ -246,6 +341,10 @@ export function App({onHome}={}){
           <div className="grp" style={{marginTop:'14px'}}>{t.coilState}</div>
           {comps.filter(c=>c.type==='motor3'&&res&&res.loads[c.id]).map(c=>(<div key={c.id} className="mono" style={{fontSize:'12px',display:'flex',justifyContent:'space-between'}}><span dir="ltr">{c.tag}</span><b style={{color:'var(--accent)'}}>{res.dir[c.id]>0?t.dirFwd:t.dirRev}</b></div>))}
           {comps.filter(c=>c.type==='coil'||/^tcoil/.test(c.type)).map(c=>(<div key={c.id} className="mono" style={{fontSize:'12px',display:'flex',justifyContent:'space-between'}}><span dir="ltr">{c.tag}</span><b style={{color:res&&res.loads[c.id]?'var(--ok)':'var(--muted)'}}>{res&&res.loads[c.id]?'ON':'OFF'}</b></div>))}</>)
+        :multi?(<><h3>{t.multiTitle(msel.cs.length,msel.ws.length)}</h3><p className="hint">{t.multiHint}</p>
+          <div className="row" style={{flexWrap:'wrap'}}><button onClick={rotSel}>{t.rotate}</button><button onClick={()=>copySel()}>{t.copySel}</button><button onClick={duplicate}>{t.dupSel}</button><button onClick={delSel}>{t.del}</button></div>
+          <div className="field" style={{marginTop:'12px'}}><label>CADe SIMU</label><p className="hint" style={{margin:'0 0 6px'}}>{t.toCadeHint}</p>
+            <button className="go" onClick={saveSelCad}>{t.saveSelCad}</button></div></>)
         :selC&&selC.type==='raw'?(<><h3>{CAD_CATALOG_NAMES[selC.cad.code]||t.rawTitle}</h3><p className="hint">{t.rawHint(selC.cad.code)}</p><div className="mono hint" dir="ltr">{selC.tag||''}</div><div className="row"><button onClick={del}>{t.del}</button></div></>)
         :selC?(<><About t={t} lang={lang} type={selC.type}/><div style={{height:'6px'}}></div>
           {(DEFS[selC.type].kind!=='src'||selC.type==='supply')&&selC.type!=='interlock'&&(<div className="field"><label htmlFor="tag">{DEFS[selC.type].link?t.tagLink:t.tag}</label>
@@ -268,7 +367,9 @@ export function App({onHome}={}){
           <p className="hint">{tool==='wire'?t.wireHelp(vFirst):placing?t.placeHelp:t.editHelp}</p>
           <div className="hint" style={{marginTop:'10px',display:'grid',gap:'4px'}}>
             <div><span className="kbd">W</span> {t.keys1}</div>
-            <div><span className="kbd">Del</span> {t.keys2}</div></div></>)}
+            <div><span className="kbd">Del</span> {t.keys2}</div>
+            <div><span className="kbd">Shift</span> {t.keys3}</div>
+            <div><span className="kbd">Ctrl+C</span> <span className="kbd">Ctrl+V</span> {t.keys4}</div></div></>)}
     </>}
     status={<>
       <span className={'chip'+(mode==='sim'?' sim':'')}>{mode==='sim'?'SIM':'EDIT'}</span>

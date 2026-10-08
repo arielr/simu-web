@@ -181,7 +181,12 @@ export function writeCad({comps,wires,dots,order,footer,netOf,pinsOf}: WriteCadI
     const r=w.cad?{...w.cad,code,nums:[...w.cad.nums]}:{id:next++,code,text:'#########',nums:Array(23).fill(0),trail:''};
     const xi=XI(r);r.nums[xi]=w.a[0]*CADU;r.nums[xi+1]=w.a[1]*CADU;r.nums[xi+2]=w.b[0]*CADU;r.nums[xi+3]=w.b[1]*CADU;if(hasNet||!w.cad)r.nums[xi+13]=netOf(w.a);
     return recStr(r);};
-  comps.forEach(c=>{const s=partRec(c);if(s==null)return;if(c.cad&&!(c.cad.key in byKey))byKey[c.cad.key]=s;else fresh.push(s);});
+  const usedIds=new Set();
+  comps.forEach(c=>{
+    // a copied part keeps its record; give the copy a new record number
+    if(c.cad&&usedIds.has(c.cad.id))c={...c,cad:{...c.cad,id:next++,key:undefined}};
+    if(c.cad)usedIds.add(c.cad.id);
+    const s=partRec(c);if(s==null)return;if(c.cad&&c.cad.key!==undefined&&!(c.cad.key in byKey))byKey[c.cad.key]=s;else fresh.push(s);});
   wires.forEach(w=>{if(w.cad&&!(w.cad.key in byKey)){byKey[w.cad.key]=wireRec(w);}else fresh.push(wireRec(w.cad?{...w,cad:null}:w));});
   const kept=new Set(order.filter(o=>o.k==='junction').map(o=>o.p[0]+','+o.p[1]));
   dots.forEach(p=>{if(kept.has(p[0]+','+p[1]))return;const x=p[0]*CADU,y=p[1]*CADU;
