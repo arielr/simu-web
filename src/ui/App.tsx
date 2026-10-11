@@ -13,6 +13,7 @@ import { BOX2, DEFS, G, H, LAMP, NC_TYPES, PALETTE_HIDE, VARIANTS, W } from "../
 import { actuated, closed, solve } from "../sim/solve";
 import { About, Icon, Sym } from "./symbols";
 import { rawSym, RAW_DRAWN } from "./rawSyms";
+import { parseProgram, plcAddrs } from "../model/plc";
 
 export const STORE='simu-web-v6';
 export const initLang=readLang;
@@ -313,6 +314,7 @@ export function App({onHome}={}){
             if(c.type==='raw'){const n=c.cad.nums,xi=n.length-15;if(RAW_NAMES[c.cad.code]){s.name=RAW_NAMES[c.cad.code];s.cat=RAW_CAT[c.cad.code];s.terms=rawTerminals(c.cad.text);const bw=Math.max(n[xi+6],12),bh=Math.max(n[xi+7],12);s.big=c.cad.code>=10204&&c.cad.code<=10208?[-30,-8,Math.max(bw*5,90),bh*5]:[n[xi+4]*5,n[xi+5]*5,Math.max(bw*5,96),Math.max(bh*5,60)];}
               else if(RAW_DRAWN.has(c.cad.code)){const rs=rawSym(c.cad,(n[xi]-c.x*3)*5,(n[xi+1]-c.y*3)*5);if(rs){s.custom=rs.node;s.hit=rs.box;}}
               else if(n[xi+2]||n[xi+3])s.line=[Math.round(n[xi+2]/3)*G-c.x*G,Math.round(n[xi+3]/3)*G-c.y*G];}
+            if(res&&d.kind==='plc')s.plc=res.plc&&res.plc[c.id];if(res&&d.kind==='psu')s.on=!!res.coils['pwr:'+c.id];
             if(res){if(d.kind==='load'){s.on=res.loads[c.id];s.dir=res.dir[c.id];s.yd=res.yd&&res.yd[c.id];if(/^tcoil/.test(c.type)){const m=res.tm[c.tag];s.done=!!(m&&(c.type==='tcoil'?m.ton:c.type==='tcoil_off'?m.toff:m.tboth));}}
               else if(d.form)s.act=actuated(c,inp,res.coils,res.tm);
               else if(d.kind==='contact')s.closed=closed(c,inp,res.coils);
@@ -363,6 +365,11 @@ export function App({onHome}={}){
           {DEFS[selC.type].act&&(<div className="field"><label htmlFor="form">{t.formLbl}</label><select id="form" value={selC.type} onChange={e=>{snap();upd(selC.id,{type:e.target.value});}}>{Object.keys(DEFS).filter(k=>DEFS[k].act===DEFS[selC.type].act).map(k=>(<option key={k} value={k}>{t.forms[DEFS[k].form]}</option>))}</select></div>)}
           {DEFS[selC.type].timer&&(<div className="field"><label htmlFor="cdly">{t.delay}</label><input id="cdly" type="number" min="0.1" step="0.5" dir="ltr" value={tcDelay(selC.tag)} onInput={e=>{const v=e.target.value;setComps(cs=>cs.map(x=>(/^tcoil/.test(x.type)||DEFS[x.type].timer)&&x.tag===selC.tag?{...x,delay:v}:x));}}/></div>)}
           {/^tcoil/.test(selC.type)&&(<div className="field"><label htmlFor="dly">{t.delay}</label><input id="dly" type="number" min="0.1" step="0.5" dir="ltr" value={selC.delay} onInput={e=>upd(selC.id,{delay:e.target.value})}/></div>)}
+          {DEFS[selC.type].kind==='plc'&&(()=>{const pr=parseProgram(selC.prog||''),ad=plcAddrs(selC.type);return (<div className="field"><label htmlFor="prog">{t.plcProg}</label>
+            <textarea id="prog" dir="ltr" spellCheck="false" rows={8} value={selC.prog||''} placeholder={t.plcPlaceholder(ad.ins[0],ad.ins[1],ad.outs[0])} onFocus={snap} onInput={e=>upd(selC.id,{prog:e.target.value})} style={{width:'100%',fontFamily:'var(--f-mono)',fontSize:'12px',boxSizing:'border-box'}}/>
+            {pr.errors.length>0&&(<div className="hint" style={{color:'var(--live)'}} dir="ltr">{pr.errors.join(' · ')}</div>)}
+            <p className="hint" style={{margin:'4px 0 0'}}>{t.plcHelp}</p>
+            <p className="hint mono" dir="ltr" style={{margin:'4px 0 0',fontSize:'11px'}}>IN: {ad.ins.join(' ')}<br/>OUT: {ad.outs.join(' ')}</p></div>);})()}
           {(selC.type==='lamp'||selC.type==='lampf')&&(<div className="field"><label htmlFor="clr">{t.color}</label><select id="clr" value={selC.color} onChange={e=>upd(selC.id,{color:e.target.value})}>{Object.keys(LAMP).map(k=>(<option key={k} value={k}>{t.colors[k]}</option>))}</select></div>)}
           <div className="row">{DEFS[selC.type].kind!=='src'&&(<button onClick={rot}>{t.rotate}{selC.rot?` · ${selC.rot*90}°`:''}</button>)}<button onClick={del}>{t.del}</button></div></>)
         :selW?(<><h3>{t.wireTitle}</h3><p className="hint">{t.wireHint}</p>

@@ -1,6 +1,8 @@
 // @ts-nocheck
 import { UF, key, pinPos, wireNet } from "../model/geometry";
 import { DEFS } from "../model/parts";
+import { PLC_MODELS, plcLayout, plcCom, parseProgram, scan } from "../model/plc";
+const progCache=new Map();const progOf=src=>{if(!progCache.has(src))progCache.set(src,parseProgram(src));return progCache.get(src);};
 
 /* timer per tag: st={on,t,done}. on-delay acts after the coil has been on for d; off-delay acts at once and releases d after the coil drops;
    'both' delays both edges. */
@@ -13,7 +15,7 @@ export function timerActs(st,d,now,kind){if(!st)return {ton:false,toff:false,tbo
 export function actuated(c,inp,coils,tm){const d=DEFS[c.type];
   switch(d.act){case 'aux':return !!coils[c.tag];case 'ton':case 'toff':case 'tboth':return !!(tm[c.tag]&&tm[c.tag][d.act]);
     case 'pb':return !!inp.press[c.id];case 'th':return !!inp.trip[c.id]||!!(inp.tripTag&&inp.tripTag[c.tag]);default:return !!inp.sw[c.id];}}
-export function pathOn(c,p,inp,coils,tm){if(p[2]){const a=actuated(c,inp,coils,tm);return p[2]==='no'?a:!a;}return closed(c,inp,coils);}
+export function pathOn(c,p,inp,coils,tm){if(p[2]==='plc')return !!coils['plc:'+c.id+':'+p[3]];if(p[2]){const a=actuated(c,inp,coils,tm);return p[2]==='no'?a:!a;}return closed(c,inp,coils);}
 export function closed(c,inp,coils){
   const d=DEFS[c.type];
   if(d.fam==='km')return !!coils[c.tag];
@@ -40,6 +42,9 @@ export function solve(comps,wires,inp,prevCoils,timers,now){
     const pot=new Map();
     comps.forEach(c=>{const d=DEFS[c.type];if(!d.src)return;
       Object.entries(d.src).forEach(([pi,ph])=>{const r=uf.f(key(pinPos(c,+pi)));if(!pot.has(r))pot.set(r,new Set());pot.get(r).add(ph);});});
+    // supplies that only deliver while they are powered (PLC sensor supply, 24 V power supply)
+    comps.forEach(c=>{const d=DEFS[c.type];if(!d.condSrc||!coils['pwr:'+c.id])return;
+      Object.entries(d.condSrc).forEach(([pi,ph])=>{const r=uf.f(key(pinPos(c,+pi)));if(!pot.has(r))pot.set(r,new Set());pot.get(r).add(ph);});});
     let short=false;pot.forEach(v=>{if(v.size>1)short=true;});
     const potOf=p=>{const v=pot.get(uf.f(key(p)));return v&&v.size===1?[...v][0]:null;};
     const loads={},dir={},nc={},tOn={};const out0={};
@@ -59,9 +64,22 @@ export function solve(comps,wires,inp,prevCoils,timers,now){
         const delta=three&&ep.every(i=>i>=0)&&ix.every((p,k)=>p!==ep[k]);
         const on=!short&&(star||delta);loads[c.id]=on;
         if(on){dir[c.id]=(ix[1]-ix[0]+3)%3===1?1:-1;(out0.yd||(out0.yd={}))[c.id]=star?'Y':'Δ';}}});
+    // PLCs and power supplies: powered when their supply terminals carry two different potentials; a PLC scans its program
+    const plc={};
+    comps.forEach(c=>{const d=DEFS[c.type];if(!d.pwr)return;
+      const a=potOf(pinPos(c,d.pwr[0])),b=potOf(pinPos(c,d.pwr[1]));const on=!short&&!!a&&!!b&&a!==b;if(on)nc['pwr:'+c.id]=true;
+      if(d.kind!=='plc')return;
+      const lay=plcLayout(c.type),ins={};
+      lay.inputs.forEach(i=>{const ci=plcCom(lay,i);const pi=potOf(pinPos(c,i)),pc=ci>=0?potOf(pinPos(c,ci)):null;if(pi&&pc&&pi!==pc)ins[lay.pins[i].addr]=true;});
+      const mem={},pre='plc:'+c.id+':';Object.keys(coils).forEach(k=>{if(k.startsWith(pre))mem[k.slice(pre.length)]=true;});
+      let st={mem:{},timers:{}};
+      if(on){st=scan(progOf(c.prog||''),ins,mem,coils['plct:'+c.id]||{},now);
+        Object.entries(st.mem).forEach(([k,v])=>{if(v)nc[pre+k]=true;});if(Object.keys(st.timers).length)nc['plct:'+c.id]=st.timers;}
+      plc[c.id]={on,ins,mem:on?st.mem:{}};});
+    out0.plc=plc;
     comps.forEach(c=>{if(c.type!=='interlock'||!nc[c.tag]||!nc[c.tag2])return;
       if(coils[c.tag]&&!coils[c.tag2])delete nc[c.tag2];else if(coils[c.tag2]&&!coils[c.tag])delete nc[c.tag];else{delete nc[c.tag];delete nc[c.tag2];}});
-    out={uf,pot,short,loads,dir,tOn,tm,delays,potOf,ttags,yd:out0.yd||{}};
+    out={uf,pot,short,loads,dir,tOn,tm,delays,potOf,ttags,yd:out0.yd||{},plc:out0.plc||{}};
     if(JSON.stringify(nc)===JSON.stringify(coils)){stable=true;break;}
     coils=nc;
   }

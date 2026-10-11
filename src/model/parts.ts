@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { PLC_MODELS, PLC_H, plcLayout, plcCom } from "./plc";
 
 
 export const G=15, W=150, H=110;
@@ -56,6 +57,15 @@ export const NAMED={no:['aux','no'],nc:['aux','nc'],tno:['ton','no'],tnc:['ton',
 export const contactDef=(act,form)=>({...ACTS[act],act,form,kind:'contact',box:{x:-40,y:-4,width:56,height:68},...FORMS[form]});
 Object.keys(ACTS).forEach(a=>(ACTS[a].sensor?['no','nc']:Object.keys(FORMS)).forEach(f=>{DEFS[a+'_'+f]=contactDef(a,f);}));
 Object.entries(NAMED).forEach(([k,[a,f]])=>{delete DEFS[a+'_'+f];DEFS[k]=contactDef(a,f);});
+/* PLCs: outputs are contacts between a common and the output terminal, closed by the program;
+   24 V sensor supplies and power supplies only deliver while their own supply is on */
+function plcDef(type){const lay=plcLayout(type),m=PLC_MODELS[type];
+  return {group:'plc',kind:'plc',plc:type,prefix:'PLC',pins:lay.pins.map(p=>[p.x,p.y]),plabels:lay.pins.map(p=>p.label),
+    paths:lay.outputs.map(i=>[plcCom(lay,i),i,'plc',lay.pins[i].addr]).filter(p=>p[0]>=0),
+    pwr:m.power==='ac'?[lay.L,lay.N]:[lay.dcp,lay.dcm],condSrc:lay.supP>=0?{[lay.supP]:'P',[lay.supM]:'M'}:null,
+    box:{x:-14,y:-8,width:(lay.cols-1)*30+28,height:PLC_H*15+16},lab:[-4,-12]};}
+Object.keys(PLC_MODELS).forEach(k=>{DEFS[k]=plcDef(k);});
+DEFS.psu24={group:'plc',kind:'psu',prefix:'G',pins:[[0,0],[2,0],[0,6],[2,6],[4,6],[6,6]],plabels:['L','N','+','+','−','−'],pwr:[0,1],condSrc:{2:'P',3:'P',4:'M',5:'M'},box:{x:-14,y:-8,width:118,height:106},lab:[-4,-12]};
 export const SHOW_CONTACTS=new Set(['ind_no','cap_no','prs_no','tst_no','no','nc','aux_co','tno','tnc','toff_no','toff_nc','pb_no','pb_nc','pbm_nc','sel_no','lim_no','lim_nc','thermal']);
 /* multi-pole families: top pins 1,3,5,7 at 2-grid spacing, bottom pins 2,4,6,8 four steps below */
 export const FAMS={ovl:{group:'power',prefix:'F',trip:1},mpcb:{group:'power',prefix:'Q',toggle:'off'},rcd:{group:'power',prefix:'F',toggle:'off'},km:{group:'power',prefix:'KM',link:'coil'},fu:{group:'power',prefix:'F'},fsd:{group:'power',prefix:'F',toggle:'off'},mcb:{group:'power',prefix:'Q',toggle:'off'},qs:{group:'power',prefix:'S',toggle:'sw'}};
