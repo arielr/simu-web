@@ -38,8 +38,8 @@ export const DEFS={
   horn:{group:'load',pins:TWO,prefix:'H',kind:'load',load:[0,1]},
   valve:{group:'load',pins:TWO,prefix:'EV',kind:'load',load:[0,1]},
   motor:{group:'load',pins:TWO,prefix:'M',kind:'load',load:[0,1]},
-  motor1:{group:'load',pins:[[0,0],[4,0],[6,0]],prefix:'M',kind:'load',load:[0,1],box:{x:-8,y:-4,width:108,height:68},lab:[52,48]},
-  motor3:{group:'load',pins:[[0,0],[2,0],[4,0],[6,0]],prefix:'M',kind:'load',load3:[0,1,2],box:{x:-8,y:-4,width:108,height:68},lab:[52,48]},
+  motor1:{group:'load',pins:[[0,0],[4,0],[6,0]],prefix:'M',kind:'load',load:[0,1],box:{x:-20,y:-4,width:120,height:128},lab:[-46,80]},
+  motor3:{group:'load',pins:[[0,0],[2,0],[4,0],[6,0]],prefix:'M',kind:'load',load3:[0,1,2],box:{x:-20,y:-4,width:120,height:128},lab:[-46,80]},
   raw:{group:null,pins:[],kind:'raw',box:{x:-10,y:-6,width:56,height:52}},
 };
 /* contact blocks: actuator (what operates it) x form (NO, NC, NC+NO pair, changeover).
