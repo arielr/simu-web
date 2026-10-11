@@ -122,7 +122,10 @@ automatically without a browser; the UI layer only draws the state.
 
 `src/model/plc.ts`: Schneider M221 (TM221C16R) and M241 (TM241CE40U), Siemens S7-200 CPU 226 and
 S7-1200 CPU 1214C, a compact 24 DI / 16 DO controller and a 24 V DC power supply, with their real
-terminal names. Each PLC has a small program (one line per output or marker:
+terminal names. Each controller (and the power supply) is drawn from its picture in
+`src/assets/plc/`: the screw centres were measured on the picture, the picture is scaled so screws
+are about two grid steps apart, and each terminal sits on the nearest grid point with a short lead
+to its screw. In simulation a ring marks inputs/outputs that are on and a green frame shows power. Each PLC has a small program (one line per output or marker:
 `Q0 = (I0 | Q0) & !I1`, `NOT/AND/OR`, `TON(input, seconds)`), scanned in the simulation while the
 PLC is powered. An input is on when its terminal and its COM carry different potentials; an
 output closes the contact between its COM and its terminal; the 24 V sensor supplies deliver only

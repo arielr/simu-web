@@ -1,5 +1,13 @@
 // @ts-nocheck
-import { PLC_MODELS, PLC_H, plcLayout } from "../model/plc";
+import { PLC_MODELS, plcLayout, psuLayout } from "../model/plc";
+import m221 from "../assets/plc/m221.jpg";
+import m241 from "../assets/plc/m241.jpg";
+import s7200 from "../assets/plc/s7200.jpg";
+import c24 from "../assets/plc/c24-psu.jpg";
+import s71214 from "../assets/plc/s71214.jpg";
+const PLC_IMG={m221,m241,s7200,c24,s71214};
+/** full picture size in image px, to crop with a nested svg */
+const PLC_IMG_SIZE={m221:[373,371],m241:[796,437],s7200:[660,282],c24:[996,428],s71214:[608,520]};
 import { pdesc, pname } from "../i18n/descriptions";
 import { ACTS, BOX2, DEFS, LAMP, NC_TYPES } from "../model/parts";
 
@@ -88,29 +96,22 @@ export function Contact({d,s}){
   const gx=-22;const hasAct=d.act!=='aux';
   return (<>{body}{hasAct&&(<><Ln x1={gx} y1={30} x2={mx} y2={30} d="3 3" w={1.5}/><Glyph act={d.act} gx={gx} s={s}/></>)}</>);
 }
-/* PLC: an original schematic faceplate with the controller's terminal names; LEDs show inputs/outputs in simulation */
-function PlcSym({type,s}){const d=DEFS[type],lay=plcLayout(type),m=PLC_MODELS[type],H=PLC_H*15,w=(lay.cols-1)*30,st=s.plc;
-  const cs=s.cs||[];
+/* PLC and power supply: the controller's picture, each terminal joined to its screw by a short lead;
+   in simulation a ring marks the inputs/outputs that are on and a green frame shows the device is powered */
+function PicSym({pins,pic,s,lit}){const cs=s.cs||[],[iw,ih]=PLC_IMG_SIZE[pic.img],[cx,cy,cw,ch]=pic.crop,k=pic.k;
   return (<>
-    <rect x={-10} y={0} width={w+20} height={H} rx="6" fill="color-mix(in srgb,var(--ink) 7%,var(--sheet))" stroke="currentColor" strokeWidth="1.8"/>
-    <rect x={-10} y={0} width={w+20} height={30} rx="6" fill="color-mix(in srgb,var(--ink) 12%,var(--sheet))" stroke="none"/>
-    <rect x={-10} y={H-30} width={w+20} height={30} rx="6" fill="color-mix(in srgb,var(--ink) 12%,var(--sheet))" stroke="none"/>
-    {lay.pins.map((p,i)=>{const x=p.x*15,top=p.y===0,on=st&&(p.role==='in'?st.ins[p.addr]:p.role==='out'?st.mem[p.addr]:false);
-      const col=p.role==='L'?'var(--live)':p.role==='N'?'var(--neu)':p.role==='pe'?'var(--pe)':'currentColor';
-      return (<g key={i}><Ln x1={x} y1={top?0:H} x2={x} y2={top?8:H-8} c={cs[i]||col}/>
-        <text x={x} y={top?19:H-13} textAnchor="middle" fontSize={p.label.length>3?6.5:8} fontWeight="600" fill={col} fontFamily="var(--f-mono)">{p.label}</text>
-        {(p.role==='in'||p.role==='out')&&<rect x={x-3} y={top?24:H-30} width="6" height="5" rx="1" fill={on?(p.role==='in'?'var(--ok)':'var(--accent)'):'color-mix(in srgb,var(--muted) 30%,transparent)'} stroke="none"/>}</g>);})}
-    <text x={w/2} y={H/2-2} textAnchor="middle" fontSize="13" fontWeight="700" fill="currentColor" fontFamily="var(--f-ui)">{m.name}</text>
-    <text x={w/2} y={H/2+13} textAnchor="middle" fontSize="9" fill="var(--muted)" fontFamily="var(--f-ui)">{m.maker?m.maker+' · ':''}PLC</text>
-    <circle cx={-2} cy={H/2} r="4" fill={st&&st.on?'var(--ok)':'color-mix(in srgb,var(--muted) 30%,transparent)'}/>
-    <text x={6} y={H/2+3} fontSize="7" fill="var(--muted)">RUN</text></>);}
-function PsuSym({s}){const cs=s.cs||[],on=s.on;
-  return (<><rect x={-10} y={8} width={110} height={76} rx="5" fill="color-mix(in srgb,var(--ink) 7%,var(--sheet))" stroke="currentColor" strokeWidth="1.8"/>
-    {[[0,0,'L','var(--live)'],[30,0,'N','var(--neu)'],[0,90,'+','var(--live)'],[30,90,'+','var(--live)'],[60,90,'−','currentColor'],[90,90,'−','currentColor']].map(([x,y,l,c],i)=>
-      (<g key={i}><Ln x1={x} y1={y} x2={x} y2={y?y-8:8} c={cs[i]||c}/><text x={x} y={y?y-12:22} textAnchor="middle" fontSize="9" fontWeight="600" fill={c}>{l}</text></g>))}
-    <text x={45} y={46} textAnchor="middle" fontSize="11" fontWeight="700" fill="currentColor">24 V DC</text>
-    <text x={45} y={60} textAnchor="middle" fontSize="8" fill="var(--muted)">100–240 V AC</text>
-    <circle cx={88} cy={22} r="4" fill={on?'var(--ok)':'color-mix(in srgb,var(--muted) 30%,transparent)'}/></>);}
+    <svg x={pic.x} y={pic.y} width={pic.w} height={pic.h} viewBox={`${cx} ${cy} ${cw} ${ch}`} overflow="hidden">
+      <image href={PLC_IMG[pic.img]} x={0} y={0} width={iw} height={ih} preserveAspectRatio="none"/></svg>
+    <rect x={pic.x} y={pic.y} width={pic.w} height={pic.h} fill="none" stroke={s.on||(s.plc&&s.plc.on)?'var(--ok)':'color-mix(in srgb,var(--ink) 25%,transparent)'} strokeWidth={s.on||(s.plc&&s.plc.on)?3:1}/>
+    {pins.map((p,i)=>{const x=p.x*15,y=p.y*15,on=lit&&lit(p);
+      const col=cs[i]||(p.role==='L'?'var(--live)':p.role==='N'?'var(--neu)':p.role==='pe'?'var(--pe)':'currentColor');
+      return (<g key={i}>{(Math.abs(x-p.sx)>0.5||Math.abs(y-p.sy)>0.5)&&<Ln x1={p.sx} y1={p.sy} x2={x} y2={y} c={col} w={1.4}/>}
+        <circle cx={x} cy={y} r={2.2} fill={col} stroke="none"/>
+        {on&&<circle cx={p.sx} cy={p.sy} r={9*k} fill="none" stroke={on} strokeWidth={2.5}/>}</g>);})}</>);}
+function PlcSym({type,s}){const lay=plcLayout(type),st=s.plc;
+  const lit=st?(p=>p.role==='in'&&st.ins[p.addr]?'var(--ok)':p.role==='out'&&st.mem[p.addr]?'var(--accent)':null):null;
+  return (<PicSym pins={lay.pins} pic={lay.pic} s={s} lit={lit}/>);}
+function PsuSym({s}){const P=psuLayout();return (<PicSym pins={P.pins} pic={P.pic} s={s} lit={null}/>);}
 export function Sym({type,s}){
   s=s||{};if(DEFS[type]&&DEFS[type].kind==='plc')return (<PlcSym type={type} s={s}/>);if(type==='psu24')return (<PsuSym s={s}/>);if(DEFS[type]&&DEFS[type].fam&&DEFS[type].n)return (<Poles d={DEFS[type]} s={s}/>);
   if(DEFS[type]&&DEFS[type].form)return (<Contact d={DEFS[type]} s={s}/>);const cs=s.cs||[];const c0=cs[0]||'currentColor',c1=cs[1]||'currentColor';
@@ -179,7 +180,7 @@ export function Sym({type,s}){
   }return null;
 }
 export const ICON_VB={battery:'-8 -4 48 54',aux_co:'-30 -2 64 64',fsd3:'-34 -2 108 64',interlock:'-6 -22 72 30',L:'-14 -24 28 32',N:'-14 -24 28 32',supply:'-10 -26 84 36',supply3:'-10 -26 84 36',supply3n:'-10 -26 144 36',motor3:'-20 -4 124 128',km3:'-30 -2 104 64',mcb3:'-34 -2 108 64',fu3:'-10 -2 84 64',qs3:'-30 -2 104 64',breaker2:'-34 -4 74 98',switch2:'-34 -4 74 113',motor1:'-20 -4 124 128',motor6:'-20 -4 124 132'};
-Object.keys(PLC_MODELS).forEach(k=>{const w=(plcLayout(k).cols-1)*30;ICON_VB[k]=`-12 -4 ${w+24} ${PLC_H*15+8}`;});ICON_VB.psu24='-14 -4 128 100';
+Object.keys(PLC_MODELS).forEach(k=>{const p=plcLayout(k).pic;ICON_VB[k]=`${p.x-4} ${p.y-4} ${p.w+8} ${p.h+8}`;});{const p=psuLayout().pic;ICON_VB.psu24=`${p.x-4} ${p.y-4} ${p.w+8} ${p.h+8}`;}
 export function Icon({type}){
   return (<svg width="26" height="30" viewBox={ICON_VB[type]||'-30 -2 48 64'} aria-hidden="true"><Sym type={type} s={{tag:'KM1',tag2:'KM2',act:false,closed:NC_TYPES.includes(type)||['breaker2','switch2'].includes(type)||DEFS[type].fam==='fu'||DEFS[type].toggle==='off',color:'amber'}}/></svg>);}
 

@@ -13,14 +13,16 @@ function circuit(prog: string) {
   const sup = { id: "s", type: "supply", x: 0, y: 0, rot: 0, tag: "X" };
   const plc: any = { id: "p", type: "plc_s71214", x: 0, y: 10, rot: 0, tag: "PLC1", prog };
   const pb = { id: "b", type: "pb_no", x: 40, y: 0, rot: 0, tag: "S1" };
-  const lamp = { id: "h", type: "lamp", x: 40, y: 24, rot: 0, tag: "H1", color: "green" };
+  const lamp = { id: "h", type: "lamp", x: 80, y: 60, rot: 0, tag: "H1", color: "green" };
   const P = pinsOf(plc), lay = plcLayout("plc_s71214");
-  const at = (label: string, row: number) => P[lay.pins.findIndex((q) => q.label === label && q.y === row)];
+  const at = (f: (q: any) => boolean) => P[lay.pins.findIndex(f)];
+  const lbl = (l: string) => at((q) => q.label === l), adr = (a: string) => at((q) => q.addr === a);
+  const low = Math.max(...P.map((p) => p[1])) + 2; // lanes below the bottom terminals (the lamp sits below them)
   const wires = [
-    line([0, 0], at("L1", 0)), line([2, 0], at("N", 0)),
-    ...via(at("L+", 0), [40, 0], -1), ...via([40, 4], at(".0", 0), 7), ...via(at("M", 0), at("1M", 0), 8),
-    line(at("L1", 0), at("1L", 9)), ...via(at(".0", 9), [40, 24], 22),
-    line([40, 28], [40, 30]), line([40, 30], [60, 30]), line([60, 30], [60, -2]), line([60, -2], [2, -2]), line([2, -2], [2, 0]),
+    line([0, 0], lbl("L1")), line([2, 0], lbl("N")),
+    ...via(lbl("L+"), [40, 0], -1), ...via([40, 4], adr("I0.0"), 7), ...via(lbl("M"), lbl("1M"), 8),
+    ...via(lbl("L1"), lbl("1L"), low), ...via(adr("Q0.0"), [80, 60], low + 1),
+    line([80, 64], [80, 66]), line([80, 66], [100, 66]), line([100, 66], [100, -2]), line([100, -2], [2, -2]), line([2, -2], [2, 0]),
   ];
   return { comps: [sup, plc, pb, lamp], wires };
 }
@@ -53,6 +55,9 @@ describe("PLC program", () => {
       expect(lay.inputs.length).toBeGreaterThan(8);
       expect(lay.outputs.length).toBeGreaterThan(6);
       expect(lay.L >= 0 || lay.dcp >= 0).toBe(true);
+      const seen = new Set(lay.pins.map((p) => p.x + "," + p.y));
+      expect(seen.size).toBe(lay.pins.length); // one grid point per terminal
+      for (const p of lay.pins) expect(Math.hypot(p.sx - p.x * 15, p.sy - p.y * 15)).toBeLessThan(11); // close to its screw
     }
   });
 });
