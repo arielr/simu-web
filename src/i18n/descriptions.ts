@@ -35,6 +35,7 @@ export const DESC={
   valve:['Solenoid valve (EV). An electrically operated valve for air, water or oil.','Opens when its coil has voltage.'],
   motor:['Motor with two terminals, a simplified single-phase load.','Spins when it has voltage.'],
   motor1:['Single-phase motor with U1, V1 and PE terminals.','Spins when U1 and V1 get L and N.'],
+  motor6:['Three-phase motor with both ends of each winding: U1 V1 W1 on top, W2 U2 V2 below, and PE.','Runs in star (U2, V2, W2 joined, three phases on U1 V1 W1) or in delta (each winding between two different phases). The panel shows which.'],
   motor3:['Three-phase motor with U1, V1, W1 and PE terminals.','Spins when it gets three different phases. Swap two phases to reverse it; the panel shows the direction.'],
  },
  he:{
@@ -69,6 +70,7 @@ export const DESC={
   valve:['שסתום סולנואיד (EV). שסתום חשמלי לאוויר, מים או שמן.','נפתח כשיש מתח על הסליל שלו.'],
   motor:['מנוע עם שני הדקים, צרכן חד־פאזי פשוט.','מסתובב כשיש עליו מתח.'],
   motor1:['מנוע חד־פאזי עם הדקים U1, ‏V1 ו-PE.','מסתובב כש-U1 ו-V1 מקבלים L ו-N.'],
+  motor6:['מנוע תלת־פאזי עם שני הקצוות של כל ליפוף: U1 V1 W1 למעלה, W2 U2 V2 למטה, ו-PE.','עובד בכוכב (U2, V2, W2 מחוברים ושלוש פאזות על U1 V1 W1) או במשולש (כל ליפוף בין שתי פאזות שונות). החלונית מציגה באיזה חיבור.'],
   motor3:['מנוע תלת־פאזי עם הדקים U1, ‏V1, ‏W1 ו-PE.','מסתובב כשהוא מקבל שלוש פאזות שונות. החלפת שתי פאזות הופכת את הכיוון, והחלונית מציגה אותו.'],
  }};
 export const ACT_DESC={

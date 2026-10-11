@@ -43,7 +43,7 @@ export function Pole({x,h,cl,c0,c1,brk}){
     {brk&&(<><Ln x1={x-4} y1={t-4} x2={x+4} y2={t+4} w={1.6}/><Ln x1={x+4} y1={t-4} x2={x-4} y2={t+4} w={1.6}/></>)}</>);
 }
 export function Poles({d,s}){
-  const cs=s.cs||[];const n=d.n,h=60,cl=s.closed,fam=d.fam,t=h*0.36,b=h*0.64,my=h/2;const out=[];
+  const cs=s.cs||[];const n=d.n,h=(d.depth||4)*15,cl=s.closed,fam=d.fam,t=h*0.36,b=h*0.64,my=h/2;const out=[];
   for(let i=0;i<n;i++){const x=30*i,c0=cs[i]||'currentColor',c1=cs[n+i]||'currentColor';const isN=d.neu&&i===n-1;
     if(fam==='fu'&&isN)out.push((<g key={i}><Ln x1={x} y1={0} x2={x} y2={60} c={cs[i]||null}/><text x={x+4} y="34" fontSize="9" fill="var(--muted)">N</text></g>));
     else if(fam==='fsd'){out.push((<g key={i}><Pole x={x} h={h} cl={cl} c0={c0} c1={c1}/>{!isN&&(<rect x={x-(cl?5:10)} y="24" width="8" height="14" fill="var(--sheet)" stroke="currentColor" strokeWidth="1.6" transform={`rotate(${cl?4:22} ${x-(cl?1:6)} 31)`}/>)}</g>));}
@@ -135,17 +135,26 @@ export function Sym({type,s}){
       <circle cx={cx} cy={cy} r={r} fill={s.on?'color-mix(in srgb,var(--accent) 22%,var(--sheet))':'var(--sheet)'} stroke="currentColor" strokeWidth="2"/>
       <text x={cx} y={cy+4} textAnchor="middle" fontSize="22" fontWeight="600" fill="currentColor">M</text><text x={cx} y={cy+24} textAnchor="middle" fontSize="13" fill="currentColor">{three?'3~':'1~'}</text>
       {s.on&&(<g><Ln x1={cx} y1={cy-r+3} x2={cx} y2={cy-r+11} c="var(--accent)" w={3}/>{three&&<path d={s.dir>0?`M ${cx+r+4} ${cy-14} l 5 -8 l 4 9`:`M ${cx-r-4} ${cy-14} l -5 -8 l -4 9`} fill="none" stroke="var(--accent)" strokeWidth="2"/>}<animateTransform attributeName="transform" type="rotate" from={`0 ${cx} ${cy}`} to={`${three&&s.dir<0?-360:360} ${cx} ${cy}`} dur="0.8s" repeatCount="indefinite"/></g>)}</>);}
+    case 'motor6':{const cx=30,cy=60,r=45; // CADe SIMU 1001: terminals U1 V1 W1 PE on top, W2 U2 V2 24 units below
+      const top=x=>cy-Math.sqrt(Math.max(0,r*r-(x-cx)**2)),bot=x=>cy+Math.sqrt(Math.max(0,r*r-(x-cx)**2));
+      const lab=(x,y,t,k)=><text key={k} x={x+3} y={y} fontSize="8" fill="var(--muted)" stroke="none">{t}</text>;
+      return (<>{[0,30,60].map((x,i)=><Ln key={'t'+i} x1={x} y1={0} x2={x} y2={top(x)} c={cs[i]}/>)}{[0,30,60].map((x,i)=><Ln key={'b'+i} x1={x} y1={120} x2={x} y2={bot(x)} c={cs[4+i]}/>)}
+      <polyline points={`90,0 90,${cy} ${cx+r},${cy}`} fill="none" stroke="var(--pe)" strokeWidth="2"/>
+      <circle cx={cx} cy={cy} r={r} fill={s.on?'color-mix(in srgb,var(--accent) 22%,var(--sheet))':'var(--sheet)'} stroke="currentColor" strokeWidth="2"/>
+      <text x={cx} y={cy+4} textAnchor="middle" fontSize="22" fontWeight="600" fill="currentColor">M</text><text x={cx} y={cy+24} textAnchor="middle" fontSize="13" fill="currentColor">3~{s.yd?' '+s.yd:''}</text>
+      {lab(0,10,'U1','a')}{lab(30,10,'V1','b')}{lab(60,10,'W1','c')}{lab(0,116,'W2','d')}{lab(30,116,'U2','e')}{lab(60,116,'V2','f')}
+      {s.on&&(<g><Ln x1={cx} y1={cy-r+3} x2={cx} y2={cy-r+11} c="var(--accent)" w={3}/><animateTransform attributeName="transform" type="rotate" from={`0 ${cx} ${cy}`} to={`${s.dir<0?-360:360} ${cx} ${cy}`} dur="0.8s" repeatCount="indefinite"/></g>)}</>);}
     case 'interlock':return (<><Ln x1={0} y1={0} x2={60} y2={0} d="4 3" w={1.5}/><path d="M 22 -12 L 38 -12 L 30 0 Z" fill="none" stroke="currentColor" strokeWidth="1.6"/>
       <text x="0" y="-6" fontSize="11" fontWeight="600" fill="currentColor">{s.tag||''}</text><text x="60" y="-6" textAnchor="end" fontSize="11" fontWeight="600" fill="currentColor">{s.tag2||''}</text></>);
     case 'battery':return (<><Ln x1={15} y1={0} x2={15} y2={18} c={c0}/><Ln x1={3} y1={18} x2={27} y2={18} w={2.4}/><Ln x1={9} y1={26} x2={21} y2={26} w={4}/><Ln x1={15} y1={26} x2={15} y2={45} c={c1}/>
       <text x={30} y={14} fontSize="11" fill="currentColor">+</text><text x={30} y={38} fontSize="11" fill="currentColor">−</text></>);
-    case 'raw':if(s.big&&s.cat)return (<Face b={s.big} cat={s.cat} name={s.name||''} sub={`CADe ${s.code}${s.tag?' · '+s.tag:''}`} terms={s.terms||[]}/>);
+    case 'raw':if(s.custom)return s.custom;if(s.big&&s.cat)return (<Face b={s.big} cat={s.cat} name={s.name||''} sub={`CADe ${s.code}${s.tag?' · '+s.tag:''}`} terms={s.terms||[]}/>);
       if(s.big){const [x,y,w,h]=s.big;return (<><rect x={x} y={y} width={w} height={h} rx="4" fill="color-mix(in srgb,var(--muted) 10%,transparent)" stroke="var(--muted)" strokeDasharray="6 4"/>
       <text x={x+8} y={y+18} fontSize="12" fontWeight="600" fill="currentColor" fontFamily="var(--f-ui)">{s.name||''}</text><text x={x+8} y={y+34} fontSize="10" fill="var(--muted)">CADe {s.code}{s.tag?' · '+s.tag:''}</text></>);}
       if(s.line)return (<Ln x1={0} y1={0} x2={s.line[0]} y2={s.line[1]} c="var(--muted)" w={1.6}/>);return (<><title>{s.cname||''}</title><rect x="-6" y="-2" width="48" height="44" rx="3" fill="color-mix(in srgb,var(--muted) 12%,transparent)" stroke="var(--muted)" strokeDasharray="4 3"/><text x="18" y="20" textAnchor="middle" fontSize="10" fill="var(--muted)">{s.code}</text><text x="18" y="32" textAnchor="middle" fontSize="7.5" fill="var(--muted)" fontFamily="var(--f-ui)">{fit(s.cname||'',44,7.5)}</text></>);
   }return null;
 }
-export const ICON_VB={battery:'-8 -4 48 54',aux_co:'-30 -2 64 64',fsd3:'-34 -2 108 64',interlock:'-6 -22 72 30',L:'-14 -24 28 32',N:'-14 -24 28 32',supply:'-10 -26 84 36',supply3:'-10 -26 84 36',supply3n:'-10 -26 144 36',motor3:'-20 -4 124 128',km3:'-30 -2 104 64',mcb3:'-34 -2 108 64',fu3:'-10 -2 84 64',qs3:'-30 -2 104 64',breaker2:'-34 -4 74 98',switch2:'-34 -4 74 113',motor1:'-20 -4 124 128'};
+export const ICON_VB={battery:'-8 -4 48 54',aux_co:'-30 -2 64 64',fsd3:'-34 -2 108 64',interlock:'-6 -22 72 30',L:'-14 -24 28 32',N:'-14 -24 28 32',supply:'-10 -26 84 36',supply3:'-10 -26 84 36',supply3n:'-10 -26 144 36',motor3:'-20 -4 124 128',km3:'-30 -2 104 64',mcb3:'-34 -2 108 64',fu3:'-10 -2 84 64',qs3:'-30 -2 104 64',breaker2:'-34 -4 74 98',switch2:'-34 -4 74 113',motor1:'-20 -4 124 128',motor6:'-20 -4 124 132'};
 export function Icon({type}){
   return (<svg width="26" height="30" viewBox={ICON_VB[type]||'-30 -2 48 64'} aria-hidden="true"><Sym type={type} s={{tag:'KM1',tag2:'KM2',act:false,closed:NC_TYPES.includes(type)||['breaker2','switch2'].includes(type)||DEFS[type].fam==='fu'||DEFS[type].toggle==='off',color:'amber'}}/></svg>);}
 

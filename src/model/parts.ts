@@ -39,6 +39,7 @@ export const DEFS={
   valve:{group:'load',pins:TWO,prefix:'EV',kind:'load',load:[0,1]},
   motor:{group:'load',pins:TWO,prefix:'M',kind:'load',load:[0,1]},
   motor1:{group:'load',pins:[[0,0],[4,0],[6,0]],prefix:'M',kind:'load',load:[0,1],box:{x:-20,y:-4,width:120,height:128},lab:[-46,80]},
+  motor6:{group:'load',pins:[[0,0],[2,0],[4,0],[6,0],[0,8],[2,8],[4,8]],prefix:'M',kind:'load',yd:{u:[0,1,2],e:[5,6,4]},box:{x:-20,y:-4,width:120,height:132},lab:[-46,64]},
   motor3:{group:'load',pins:[[0,0],[2,0],[4,0],[6,0]],prefix:'M',kind:'load',load3:[0,1,2],box:{x:-20,y:-4,width:120,height:128},lab:[-46,80]},
   raw:{group:null,pins:[],kind:'raw',box:{x:-10,y:-6,width:56,height:52}},
 };
@@ -58,8 +59,10 @@ Object.entries(NAMED).forEach(([k,[a,f]])=>{delete DEFS[a+'_'+f];DEFS[k]=contact
 export const SHOW_CONTACTS=new Set(['ind_no','cap_no','prs_no','tst_no','no','nc','aux_co','tno','tnc','toff_no','toff_nc','pb_no','pb_nc','pbm_nc','sel_no','lim_no','lim_nc','thermal']);
 /* multi-pole families: top pins 1,3,5,7 at 2-grid spacing, bottom pins 2,4,6,8 four steps below */
 export const FAMS={ovl:{group:'power',prefix:'F',trip:1},mpcb:{group:'power',prefix:'Q',toggle:'off'},rcd:{group:'power',prefix:'F',toggle:'off'},km:{group:'power',prefix:'KM',link:'coil'},fu:{group:'power',prefix:'F'},fsd:{group:'power',prefix:'F',toggle:'off'},mcb:{group:'power',prefix:'Q',toggle:'off'},qs:{group:'power',prefix:'S',toggle:'sw'}};
-export function polesDef(fam,n,neu){const pins=[];for(let i=0;i<n;i++)pins.push([2*i,0]);for(let i=0;i<n;i++)pins.push([2*i,4]);
-  return {...FAMS[fam],fam,n,kind:'contact',pins,paths:[...Array(n)].map((_,i)=>[i,n+i]),box:{x:-34,y:-4,width:30*(n-1)+52,height:68},lab:[30*(n-1)+14,34],neu:!!neu};}
+/* bottom row depth in grid steps, as CADe SIMU draws them: RCDs 18 units, motor breakers 21 units, the rest 12 */
+const DEPTH={rcd:6,mpcb:7};
+export function polesDef(fam,n,neu){const dp=DEPTH[fam]||4;const pins=[];for(let i=0;i<n;i++)pins.push([2*i,0]);for(let i=0;i<n;i++)pins.push([2*i,dp]);
+  return {...FAMS[fam],fam,n,depth:dp,kind:'contact',pins,paths:[...Array(n)].map((_,i)=>[i,n+i]),box:{x:-34,y:-4,width:30*(n-1)+52,height:dp*15+8},lab:[30*(n-1)+14,dp*15/2+4],neu:!!neu};}
 [1,2,3,4].forEach(n=>{DEFS['km'+n]=polesDef('km',n);DEFS['mcb'+n]=polesDef('mcb',n);if(n>1){DEFS['fu'+n]=polesDef('fu',n);DEFS['qs'+n]=polesDef('qs',n);}if(n<4)DEFS['fsd'+n]=polesDef('fsd',n);});
 DEFS.mcb1n=polesDef('mcb',2,true);DEFS.mcb3n=polesDef('mcb',4,true);DEFS.rcd3n=polesDef('rcd',4,true);DEFS.ovl3=polesDef('ovl',3);
 [1,3].forEach(n=>{DEFS['mpcb'+n]=polesDef('mpcb',n);DEFS['mpcb'+n+'n']=polesDef('mpcb',n+1,true);});

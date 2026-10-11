@@ -42,7 +42,7 @@ export function solve(comps,wires,inp,prevCoils,timers,now){
       Object.entries(d.src).forEach(([pi,ph])=>{const r=uf.f(key(pinPos(c,+pi)));if(!pot.has(r))pot.set(r,new Set());pot.get(r).add(ph);});});
     let short=false;pot.forEach(v=>{if(v.size>1)short=true;});
     const potOf=p=>{const v=pot.get(uf.f(key(p)));return v&&v.size===1?[...v][0]:null;};
-    const loads={},dir={},nc={},tOn={};
+    const loads={},dir={},nc={},tOn={};const out0={};
     comps.forEach(c=>{const d=DEFS[c.type];
       if(d.load){const a=potOf(pinPos(c,d.load[0])),b=potOf(pinPos(c,d.load[1]));
         const on=!short&&!!a&&!!b&&a!==b;loads[c.id]=on;
@@ -50,10 +50,18 @@ export function solve(comps,wires,inp,prevCoils,timers,now){
         if((/^tcoil/.test(c.type)||c.type==='coil')&&on&&ttags.has(c.tag))tOn[c.tag]=true;}
       if(d.load3){const ps=d.load3.map(i=>potOf(pinPos(c,i)));const ix=ps.map(p=>PH.indexOf(p));
         const on=!short&&ix.every(i=>i>=0)&&new Set(ix).size===3;loads[c.id]=on;
-        if(on)dir[c.id]=(ix[1]-ix[0]+3)%3===1?1:-1;}});
+        if(on)dir[c.id]=(ix[1]-ix[0]+3)%3===1?1:-1;}
+      if(d.yd){ // 6-terminal motor: star (ends joined, 3 phases on the starts) or delta (each winding across two phases)
+        const ps=d.yd.u.map(i=>potOf(pinPos(c,i))),ix=ps.map(p=>PH.indexOf(p));
+        const es=d.yd.e.map(i=>uf.f(key(pinPos(c,i)))),ep=d.yd.e.map(i=>PH.indexOf(potOf(pinPos(c,i))));
+        const three=ix.every(i=>i>=0)&&new Set(ix).size===3;
+        const star=three&&es[0]===es[1]&&es[1]===es[2];
+        const delta=three&&ep.every(i=>i>=0)&&ix.every((p,k)=>p!==ep[k]);
+        const on=!short&&(star||delta);loads[c.id]=on;
+        if(on){dir[c.id]=(ix[1]-ix[0]+3)%3===1?1:-1;(out0.yd||(out0.yd={}))[c.id]=star?'Y':'Δ';}}});
     comps.forEach(c=>{if(c.type!=='interlock'||!nc[c.tag]||!nc[c.tag2])return;
       if(coils[c.tag]&&!coils[c.tag2])delete nc[c.tag2];else if(coils[c.tag2]&&!coils[c.tag])delete nc[c.tag];else{delete nc[c.tag];delete nc[c.tag2];}});
-    out={uf,pot,short,loads,dir,tOn,tm,delays,potOf,ttags};
+    out={uf,pot,short,loads,dir,tOn,tm,delays,potOf,ttags,yd:out0.yd||{}};
     if(JSON.stringify(nc)===JSON.stringify(coils)){stable=true;break;}
     coils=nc;
   }

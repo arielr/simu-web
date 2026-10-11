@@ -12,6 +12,7 @@ import { elbow, key, onSeg, pinsOf, rotV, wireNet } from "../model/geometry";
 import { BOX2, DEFS, G, H, LAMP, NC_TYPES, PALETTE_HIDE, VARIANTS, W } from "../model/parts";
 import { actuated, closed, solve } from "../sim/solve";
 import { About, Icon, Sym } from "./symbols";
+import { rawSym, RAW_DRAWN } from "./rawSyms";
 
 export const STORE='simu-web-v6';
 export const initLang=readLang;
@@ -242,7 +243,7 @@ export function App({onHome}={}){
     if(stageRef.current){stageRef.current.scrollLeft=0;stageRef.current.scrollTop=0;}};
   const importText=(txt,fname)=>{
     try{
-      if(txt.startsWith('CADe_SIMU')){const d=parseCad(txt);loadDrawing({...d,name:(fname||'').replace(/\.[^.]*$/,'')||t.untitled},t.cadLoaded(d.unknown));return;}
+      if(txt.startsWith('CADe_SIMU')){const d=parseCad(txt);const unk=d.comps.filter(c=>c.type==='raw'&&!RAW_DRAWN.has(c.cad.code)).length;loadDrawing({...d,name:(fname||'').replace(/\.[^.]*$/,'')||t.untitled},t.cadLoaded(unk));return;}
       const d=JSON.parse(txt);const cs=d.components||d.comps,ws=d.wires;if(!Array.isArray(cs)||!Array.isArray(ws))throw 0;
       loadDrawing({comps:cs.filter(c=>DEFS[c.type]),wires:ws,name:d.name,cadOrder:d.cadOrder,cadFooter:d.cadFooter},t.loaded);
     }catch(e){setMsg(t.badFile);}};
@@ -259,7 +260,7 @@ export function App({onHome}={}){
   const labelPos=c=>{const d=DEFS[c.type];if(d.kind==='src'&&c.type!=='supply')return null;
     const [dx,dy]=d.lab||[17,34];if(c.type==='raw')return [c.x*G+18,c.y*G+56];if(c.type==='interlock')return null;
     if(!c.rot)return [c.x*G+dx,c.y*G+dy];const q=c.rot|0;const [rx,ry]=rotV(q,dx,dy);return [c.x*G+rx+(q===1?-14:0),c.y*G+ry+(q===2?12:q===3?4:-6)];};
-  const wireStroke=w=>{const col=res?nodeColor(w.a):null;if(col)return col;return w.kind==='n'?'var(--neu)':w.kind==='pe'?'var(--pe)':'currentColor';};
+  const wireStroke=w=>{const col=res?nodeColor(w.a):null;if(col)return col;return w.kind==='n'?'var(--neu)':w.kind==='pe'?'var(--pe)':w.kind==='pos'?'var(--live)':'currentColor';};
 
   const drawerGroups=groups.map(g=>({id:g,title:t.groups[g],items:Object.entries(DEFS).filter(([k,d])=>d.group===g&&!PALETTE_HIDE.has(k)&&matches(query,pname(t,k),k)).map(([k])=>({key:k,icon:<Icon type={k}/>,label:pname(t,k)}))}));
   const bar=(<>
@@ -306,21 +307,22 @@ export function App({onHome}={}){
           {comps.map(c=>{const d=DEFS[c.type];const ps=pinsOf(c);
             let s={cs:ps.map(nodeColor),color:c.color,code:c.cad&&c.cad.code,cname:c.cad&&CAD_CATALOG_NAMES[c.cad.code],tag:c.tag,tag2:c.tag2};
             if(c.type==='raw'){const n=c.cad.nums,xi=n.length-15;if(RAW_NAMES[c.cad.code]){s.name=RAW_NAMES[c.cad.code];s.cat=RAW_CAT[c.cad.code];s.terms=rawTerminals(c.cad.text);const bw=Math.max(n[xi+6],12),bh=Math.max(n[xi+7],12);s.big=c.cad.code>=10204&&c.cad.code<=10208?[-30,-8,Math.max(bw*5,90),bh*5]:[n[xi+4]*5,n[xi+5]*5,Math.max(bw*5,96),Math.max(bh*5,60)];}
+              else if(RAW_DRAWN.has(c.cad.code)){const rs=rawSym(c.cad,(n[xi]-c.x*3)*5,(n[xi+1]-c.y*3)*5);if(rs){s.custom=rs.node;s.hit=rs.box;}}
               else if(n[xi+2]||n[xi+3])s.line=[Math.round(n[xi+2]/3)*G-c.x*G,Math.round(n[xi+3]/3)*G-c.y*G];}
-            if(res){if(d.kind==='load'){s.on=res.loads[c.id];s.dir=res.dir[c.id];if(/^tcoil/.test(c.type)){const m=res.tm[c.tag];s.done=!!(m&&(c.type==='tcoil'?m.ton:c.type==='tcoil_off'?m.toff:m.tboth));}}
+            if(res){if(d.kind==='load'){s.on=res.loads[c.id];s.dir=res.dir[c.id];s.yd=res.yd&&res.yd[c.id];if(/^tcoil/.test(c.type)){const m=res.tm[c.tag];s.done=!!(m&&(c.type==='tcoil'?m.ton:c.type==='tcoil_off'?m.toff:m.tboth));}}
               else if(d.form)s.act=actuated(c,inp,res.coils,res.tm);
               else if(d.kind==='contact')s.closed=closed(c,inp,res.coils);
               s.pressed=!!inp.press[c.id];s.tripped=!!inp.trip[c.id]||!!(inp.tripTag&&inp.tripTag[c.tag]);}
             else{s.closed=NC_TYPES.includes(c.type)||d.fam==='fu'||d.toggle==='off';}
             const isSel=isSelC(c.id);
-            const hit=s.big?{x:s.big[0],y:s.big[1],width:s.big[2],height:s.big[3]}:s.line?{x:Math.min(0,s.line[0])-4,y:Math.min(0,s.line[1])-4,width:Math.abs(s.line[0])+8,height:Math.abs(s.line[1])+8}:d.box||BOX2;
+            const hit=s.hit?{x:s.hit[0],y:s.hit[1],width:s.hit[2],height:s.hit[3]}:s.big?{x:s.big[0],y:s.big[1],width:s.big[2],height:s.big[3]}:s.line?{x:Math.min(0,s.line[0])-4,y:Math.min(0,s.line[1])-4,width:Math.abs(s.line[0])+8,height:Math.abs(s.line[1])+8}:d.box||BOX2;
             const interactive=mode==='sim'&&(['pb','th'].includes(d.act)||!!d.latch||!!d.toggle||!!d.trip);const linked=mode==='sim'&&!!d.link;
             return (<g key={c.id} data-cid={c.id} transform={`translate(${c.x*G},${c.y*G})${c.rot?` rotate(${90*c.rot})`:''}`} style={{cursor:interactive?'pointer':linked?'help':mode==='edit'&&tool==='select'?'move':null}}>
               <rect {...hit} fill={interactive?'color-mix(in srgb,var(--accent) 10%,transparent)':'transparent'} stroke={isSel?'var(--sel)':'none'} strokeDasharray="4 3" rx="4"/>
               <Sym type={c.type} s={s}/>
               {mode==='edit'&&d.pins.map((pp,i)=>(<circle key={i} cx={pp[0]*G} cy={pp[1]*G} r="2.6" fill="var(--sheet)" stroke="currentColor" strokeWidth="1.4"/>))}
             </g>);})}
-          {comps.map(c=>{const lp=c.type==='raw'&&RAW_NAMES[c.cad.code]?null:labelPos(c);if(!lp||!c.tag)return null;const d=DEFS[c.type];
+          {comps.map(c=>{const lp=c.type==='raw'&&(RAW_NAMES[c.cad.code]||RAW_DRAWN.has(c.cad.code))?null:labelPos(c);if(!lp||!c.tag)return null;const d=DEFS[c.type];
             const st=(/^tcoil/.test(c.type)||d.timer)&&res&&sim.timers[c.tag];const dl=tcDelay(c.tag);const el=st?(now-st.t)/1000:0;
             const extra=!st?'':st.on?` ${Math.min(el,dl).toFixed(1)}/${dl}s`:el<dl?` ↓${(dl-el).toFixed(1)}s`:'';
             return (<text key={'t'+c.id} x={lp[0]} y={lp[1]} fontSize="12" fontWeight="600" fill="currentColor" textAnchor={c.type==='raw'?'middle':null} pointerEvents="none">{c.tag}<tspan fill="var(--accent)">{extra}</tspan></text>);})}
@@ -339,7 +341,7 @@ export function App({onHome}={}){
           <p className="hint">{t.simHint}</p>
           <div className="legend"><div><span style={{background:'var(--live)'}}></span>{t.legL}</div><div><span style={{background:'var(--l2)'}}></span>{t.legL2}</div><div><span style={{background:'var(--l3)'}}></span>{t.legL3}</div><div><span style={{background:'var(--neu)'}}></span>{t.legN}</div><div><span style={{background:'var(--accent)'}}></span>{t.legOn}</div></div>
           <div className="grp" style={{marginTop:'14px'}}>{t.coilState}</div>
-          {comps.filter(c=>c.type==='motor3'&&res&&res.loads[c.id]).map(c=>(<div key={c.id} className="mono" style={{fontSize:'12px',display:'flex',justifyContent:'space-between'}}><span dir="ltr">{c.tag}</span><b style={{color:'var(--accent)'}}>{res.dir[c.id]>0?t.dirFwd:t.dirRev}</b></div>))}
+          {comps.filter(c=>(c.type==='motor3'||c.type==='motor6')&&res&&res.loads[c.id]).map(c=>(<div key={c.id} className="mono" style={{fontSize:'12px',display:'flex',justifyContent:'space-between'}}><span dir="ltr">{c.tag}{res.yd&&res.yd[c.id]?' · '+res.yd[c.id]:''}</span><b style={{color:'var(--accent)'}}>{res.dir[c.id]>0?t.dirFwd:t.dirRev}</b></div>))}
           {comps.filter(c=>c.type==='coil'||/^tcoil/.test(c.type)).map(c=>(<div key={c.id} className="mono" style={{fontSize:'12px',display:'flex',justifyContent:'space-between'}}><span dir="ltr">{c.tag}</span><b style={{color:res&&res.loads[c.id]?'var(--ok)':'var(--muted)'}}>{res&&res.loads[c.id]?'ON':'OFF'}</b></div>))}</>)
         :multi?(<><h3>{t.multiTitle(msel.cs.length,msel.ws.length)}</h3><p className="hint">{t.multiHint}</p>
           <div className="row" style={{flexWrap:'wrap'}}><button onClick={rotSel}>{t.rotate}</button><button onClick={()=>copySel()}>{t.copySel}</button><button onClick={duplicate}>{t.dupSel}</button><button onClick={delSel}>{t.del}</button></div>
@@ -360,7 +362,7 @@ export function App({onHome}={}){
           {(selC.type==='lamp'||selC.type==='lampf')&&(<div className="field"><label htmlFor="clr">{t.color}</label><select id="clr" value={selC.color} onChange={e=>upd(selC.id,{color:e.target.value})}>{Object.keys(LAMP).map(k=>(<option key={k} value={k}>{t.colors[k]}</option>))}</select></div>)}
           <div className="row">{DEFS[selC.type].kind!=='src'&&(<button onClick={rot}>{t.rotate}{selC.rot?` · ${selC.rot*90}°`:''}</button>)}<button onClick={del}>{t.del}</button></div></>)
         :selW?(<><h3>{t.wireTitle}</h3><p className="hint">{t.wireHint}</p>
-          <div className="field"><label htmlFor="wk">{t.wireKind}</label><select id="wk" value={selW.kind||'ph'} onChange={e=>{snap();updW(selW.id,{kind:e.target.value});}}>{['ph','n','pe'].map(k=>(<option key={k} value={k}>{t.kinds[k]}</option>))}</select></div>
+          <div className="field"><label htmlFor="wk">{t.wireKind}</label><select id="wk" value={selW.kind||'ph'} onChange={e=>{snap();updW(selW.id,{kind:e.target.value});}}>{['ph','n','pe','pos','neg'].map(k=>(<option key={k} value={k}>{t.kinds[k]}</option>))}</select></div>
           <div className="row"><button onClick={flip}>{t.flip}</button><button onClick={del}>{t.del}</button></div></>)
         :placing?(<><h3>{t.placeMode}</h3><About t={t} lang={lang} type={placing}/><p className="hint" style={{marginTop:'10px'}}>{t.placeHelp}</p></>)
         :(<><h3>{tool==='wire'?t.wireMode:placing?t.placeMode:t.editMode}</h3>

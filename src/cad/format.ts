@@ -109,11 +109,12 @@ export const CAD_PARTS={
   8018:{type:'th_pair',labels:['95','97','96','98'],box:[-18,-3,15,15]},
   8019:{type:'th_co',labels:['95','96','98'],box:[-18,-3,12,15]},
   1000:{type:'motor3',labels:['U1','V1','W1','PE'],box:[-12,-6,24,24]},
+  1001:{type:'motor6',labels:['U1','V1','W1','PE','W2','U2','V2'],box:[-12,-6,24,27]},
   2009:{type:'interlock',labels:[],box:[-6,-6,24,3],extra:{12:1}},
   1002:{type:'motor1',labels:['U1','V1','PE'],box:[-12,-6,24,24]},
 };
-export const CAD_WIRE={4000:'ph',4009:'n',4010:'pe'};
-export const CAD_WIRE_CODE={ph:4000,n:4009,pe:4010};
+export const CAD_WIRE={4000:'ph',4009:'n',4010:'pe',4018:'pos',4019:'neg'};
+export const CAD_WIRE_CODE={ph:4000,n:4009,pe:4010,pos:4018,neg:4019};
 export const CAD_JUNCTION=4001,CAD_HEADER=20000;
 export const TYPE_TO_CAD={};Object.entries(CAD_PARTS).forEach(([code,p])=>{if(!(p.type in TYPE_TO_CAD))TYPE_TO_CAD[p.type]=+code;});
 export const CAD_DEFAULT_HEADER='*1*20000#XXX#########*0*0*0*0*0*0*0*0*42*486*0*0*0*0*0*0*0*0*0*0*0*0*0#';
@@ -172,7 +173,9 @@ export function writeCad({comps,wires,dots,order,footer,netOf,pinsOf}: WriteCadI
       r={id:next++,code,text:f.join('#'),nums:[...flags,0,0,0,0,...p.box,0,0,0,1,0,0,0],trail:''};
       if(p.extra)Object.entries(p.extra).forEach(([k,v])=>{r.nums[XI(r)+ +k]=v;});}
     const xi=XI(r);
-    if(c.type!=='raw'){const f=r.text.split('#');f[0]=c.tag?'-'+c.tag:'';if(c.type==='interlock')f[1]=c.tag2?'-'+c.tag2:'';if(/^tcoil/.test(c.type)&&f.length>5&&String(+c.delay||3)!==f[5])f[5]=String(+c.delay||3);r.text=f.join('#');r.nums[xi+9]=c.rot||0;
+    if(c.type!=='raw'){const f=r.text.split('#');
+      // keep the file's own style: CADe SIMU writes tags as '-KM1', but files may hold 'KM1'
+      const dash=v=>!v||v.startsWith('-')?'-':'';f[0]=c.tag?dash(f[0])+c.tag:'';if(c.type==='interlock')f[1]=c.tag2?dash(f[1])+c.tag2:'';if(/^tcoil/.test(c.type)&&f.length>5&&String(+c.delay||3)!==f[5])f[5]=String(+c.delay||3);r.text=f.join('#');r.nums[xi+9]=(r.nums[xi+9]&~3)|(c.rot||0); // upper bits (mirroring) kept
       const ps=pinsOf?pinsOf(c):[];const nz=/^(coil|motor|supply)/.test(c.type);
       if(hasNet&&ps.length>=2){r.nums[xi+13]=nz?0:netOf(ps[0]);r.nums[xi+14]=nz?0:netOf(ps[1]);}}
     r.nums[xi]=c.x*CADU;r.nums[xi+1]=c.y*CADU;
@@ -181,11 +184,11 @@ export function writeCad({comps,wires,dots,order,footer,netOf,pinsOf}: WriteCadI
     const r=w.cad?{...w.cad,code,nums:[...w.cad.nums]}:{id:next++,code,text:'#########',nums:Array(23).fill(0),trail:''};
     const xi=XI(r);r.nums[xi]=w.a[0]*CADU;r.nums[xi+1]=w.a[1]*CADU;r.nums[xi+2]=w.b[0]*CADU;r.nums[xi+3]=w.b[1]*CADU;if(hasNet||!w.cad)r.nums[xi+13]=netOf(w.a);
     return recStr(r);};
-  const usedIds=new Set();
+  const usedKeys=new Set();
   comps.forEach(c=>{
-    // a copied part keeps its record; give the copy a new record number
-    if(c.cad&&usedIds.has(c.cad.id))c={...c,cad:{...c.cad,id:next++,key:undefined}};
-    if(c.cad)usedIds.add(c.cad.id);
+    // a part copied in the editor shares its original's record (same key): give the copy a new record number
+    if(c.cad&&c.cad.key!==undefined&&usedKeys.has(c.cad.key))c={...c,cad:{...c.cad,id:next++,key:undefined}};
+    if(c.cad)usedKeys.add(c.cad.key);
     const s=partRec(c);if(s==null)return;if(c.cad&&c.cad.key!==undefined&&!(c.cad.key in byKey))byKey[c.cad.key]=s;else fresh.push(s);});
   wires.forEach(w=>{if(w.cad&&!(w.cad.key in byKey)){byKey[w.cad.key]=wireRec(w);}else fresh.push(wireRec(w.cad?{...w,cad:null}:w));});
   const kept=new Set(order.filter(o=>o.k==='junction').map(o=>o.p[0]+','+o.p[1]));

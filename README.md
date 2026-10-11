@@ -139,6 +139,13 @@ automatically without a browser; the UI layer only draws the state.
 - `rotation` counts quarter turns; value 3 maps a part's downward terminal to the right (verified).
 - The header record (code 20000) may come first or last; record order is preserved on save.
 
+- Also read and written: DC wires `+` (4018) and `−` (4019); text notes (code 8, text in the
+  trailing field); 6-terminal star/delta motor (1001, simulated in star or delta). GRAFCET
+  (10100–10112), ladder contacts/coils (10050–10062) and PC_SIMU push buttons (8023) are drawn
+  from their records (`src/ui/rawSyms.tsx`) and saved unchanged; they are not simulated yet.
+- Terminal depths measured from projects: motor breakers 21 units, RCDs 18 units, other
+  multi-pole parts 12 units.
+
 ### Verified against CADe SIMU with real wiring
 
 Supplies (3003, 3007), MCB 2P (6002), RCD 1P+N (6005), fuse disconnector 3P (5008),
