@@ -29,6 +29,8 @@ export function App({onHome}={}){
   const [cadMeta,setCadMeta]=useState({order:init.cadOrder||null,footer:init.cadFooter||null});
   const [mode,setMode]=useState('edit');
   const [tool,setTool]=useState('select');
+  /** kind of wire drawn by the wire tool, picked from the drawer like a part */
+  const [wireKind,setWireKind]=useState('ph');
   const [sel,setSel]=useState(null);
   /* multi-selection (2+ items): ids of parts and wires; sel stays the single item shown in the inspector */
   const [msel,setMsel]=useState({cs:[],ws:[]});
@@ -90,7 +92,7 @@ export function App({onHome}={}){
       setComps(cs=>[...cs,c]);setSel({k:'c',id:c.id});setTool('select');return;}
     if(tool==='wire'){
       if(!wStart){setWStart(P.g);return;}
-      if(key(wStart)!==key(P.g)){snap();setWires(ws=>[...ws,{id:nid('w'),a:wStart,b:P.g,v:vFirst,kind:'ph'}]);}
+      if(key(wStart)!==key(P.g)){snap();setWires(ws=>[...ws,{id:nid('w'),a:wStart,b:P.g,v:vFirst,kind:wireKind}]);}
       setWStart(P.g);return;}
     const add=e.shiftKey||e.ctrlKey||e.metaKey;
     if(e.button===1){startPan(e);return;}
@@ -207,7 +209,7 @@ export function App({onHome}={}){
     if(e.key==='Delete'||e.key==='Backspace')delSel();
     else if(e.key==='r'||e.key==='R'||e.key==='ר')rotSel();
     else if(e.key==='f'||e.key==='F'||e.key==='כ')flip();
-    else if(e.key==='w'||e.key==='W'||e.key==="'"){setTool('wire');setWStart(null);}
+    else if(e.key==='w'||e.key==='W'||e.key==="'"){setTool('wire');setWStart(null);setSel(null);}
     else if(e.key==='Shift')setVFirst(v=>!v);
     else if(e.key==='Escape'){setWStart(null);setTool('select');clearSel();}});
 
@@ -262,12 +264,14 @@ export function App({onHome}={}){
     if(!c.rot)return [c.x*G+dx,c.y*G+dy];const q=c.rot|0;const [rx,ry]=rotV(q,dx,dy);return [c.x*G+rx+(q===1?-14:0),c.y*G+ry+(q===2?12:q===3?4:-6)];};
   const wireStroke=w=>{const col=res?nodeColor(w.a):null;if(col)return col;return w.kind==='n'?'var(--neu)':w.kind==='pe'?'var(--pe)':w.kind==='pos'?'var(--live)':'currentColor';};
 
-  const drawerGroups=groups.map(g=>({id:g,title:t.groups[g],items:Object.entries(DEFS).filter(([k,d])=>d.group===g&&!PALETTE_HIDE.has(k)&&matches(query,pname(t,k),k)).map(([k])=>({key:k,icon:<Icon type={k}/>,label:pname(t,k)}))}));
+  const WIRE_COL={ph:'currentColor',n:'var(--neu)',pe:'var(--pe)',pos:'var(--live)',neg:'currentColor'};
+  const wireItems=['ph','n','pe','pos','neg'].filter(k=>matches(query,t.kinds[k],t.wireWord)).map(k=>({key:'wire:'+k,label:`${t.wireWord} · ${t.kinds[k]}`,
+    icon:<svg width="26" height="30" viewBox="0 0 26 30" aria-hidden="true"><circle cx="3" cy="24" r="2.4" fill="none" stroke="currentColor" strokeWidth="1.3"/><polyline points="3,24 3,6 23,6" fill="none" stroke={WIRE_COL[k]} strokeWidth="2.2" strokeDasharray={k==='pe'?'4 2':null}/><circle cx="23" cy="6" r="2.4" fill="none" stroke="currentColor" strokeWidth="1.3"/></svg>}));
+  const drawerGroups=[{id:'wires',title:t.wiresGroup,items:wireItems},...groups.map(g=>({id:g,title:t.groups[g],items:Object.entries(DEFS).filter(([k,d])=>d.group===g&&!PALETTE_HIDE.has(k)&&matches(query,pname(t,k),k)).map(([k])=>({key:k,icon:<Icon type={k}/>,label:pname(t,k)}))}))];
   const bar=(<>
       <HomeButton lang={lang} onHome={onHome}/>
       <Brand title={COMMON[lang].programs.electrical}/>
       <Seg label="mode" value={mode} options={[['edit',t.edit],['sim',t.sim]]} onChange={toMode}/>
-      {mode==='edit'&&(<Seg label="tool" value={tool==='wire'?'wire':'select'} options={[['select',t.select],['wire',t.wire]]} onChange={v=>{setTool(v);setWStart(null);}}/>)}
       <UndoButton lang={lang} onUndo={undo}/>
       <NameField lang={lang} value={name} onChange={setName}/>
       <BarEnd lang={lang} setLang={setLang}
@@ -278,7 +282,7 @@ export function App({onHome}={}){
     </>);
 
   return (<EditorFrame app="elec" lang={lang} bar={bar}
-    drawer={<PartsDrawer lang={lang} label={t.parts_} groups={drawerGroups} active={placing} disabled={mode==='sim'} onPick={k=>{toMode('edit');setTool('place:'+k);}} query={query} setQuery={setQuery}/>}
+    drawer={<PartsDrawer lang={lang} label={t.parts_} groups={drawerGroups} active={tool==='wire'?'wire:'+wireKind:placing} disabled={mode==='sim'} onPick={k=>{toMode('edit');if(k.startsWith('wire:')){setWireKind(k.slice(5));setTool('wire');setWStart(null);setSel(null);}else setTool('place:'+k);}} query={query} setQuery={setQuery}/>}
     stage={<>
       <div className="stage" ref={stageRef}>
         {res&&(res.short||!res.stable)&&(<div className="warnwrap"><div className="warn">{res.short?t.short:t.unstable}</div></div>)}
