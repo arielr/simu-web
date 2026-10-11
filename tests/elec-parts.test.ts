@@ -54,8 +54,8 @@ describe("CADe SIMU records", () => {
     }
   });
   it("motor breakers and RCDs have CADe SIMU's terminal depth", () => {
-    expect(DEFS.mpcb3.pins[3]).toEqual([0, 7]);
-    expect(DEFS.rcd3n.pins[4]).toEqual([0, 6]);
-    expect(DEFS.mcb3.pins[3]).toEqual([0, 4]);
+    expect((DEFS as any).mpcb3.pins[3]).toEqual([0, 7]);
+    expect((DEFS as any).rcd3n.pins[4]).toEqual([0, 6]);
+    expect((DEFS as any).mcb3.pins[3]).toEqual([0, 4]);
   });
 });
