@@ -8,6 +8,7 @@
  */
 import type { ReactNode } from "react";
 import { XI } from "../cad/format";
+import { imageOf } from "./images";
 
 const U = 5; // px per CADe SIMU unit (grid G = 15 px = 3 units)
 const ink = "currentColor";
@@ -16,7 +17,7 @@ const T = (x, y, s, size = 11, anchor = "start", weight = 400, fill = ink) =>
 const L = (x1, y1, x2, y2, w = 1.6, d = null) => <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={ink} strokeWidth={w} strokeDasharray={d} />;
 
 /** codes drawn here */
-export const RAW_DRAWN = new Set([8, 8023, 10050, 10051, 10052, 10053, 10060, 10061, 10062, 10100, 10101, 10102, 10103, 10104, 10105, 10106, 10107, 10108, 10111, 10112]);
+export const RAW_DRAWN = new Set([8, 9, 8023, 10050, 10051, 10052, 10053, 10060, 10061, 10062, 10100, 10101, 10102, 10103, 10104, 10105, 10106, 10107, 10108, 10111, 10112]);
 
 /**
  * cad: the raw record; ox, oy: offset in px from the part's grid anchor to the record's exact position.
@@ -33,6 +34,16 @@ export function rawSym(cad, ox = 0, oy = 0): { node: ReactNode; box: number[] } 
     case 8: { // text note: the text is in the record's trailing field
       const h = Math.max(12, dy || 15), s = (cad.trail || "").trim();
       return g(T(0, h * 0.85, s, Math.min(16, h * 0.85), "start", 500), [0, 0, Math.max(dx, s.length * 7), h]);
+    }
+    case 9: { // picture: the file name is in the trailing field, the box runs from x,y to x2,y2
+      const name = (cad.trail || "").trim(), src = imageOf(name), w = Math.max(dx, 30), h = Math.max(dy, 30);
+      return g(src
+        ? <image href={src} x={0} y={0} width={w} height={h} preserveAspectRatio="none" />
+        : <><rect x={0} y={0} width={w} height={h} fill="color-mix(in srgb,var(--muted) 8%,transparent)" stroke="var(--muted)" strokeWidth={1.2} strokeDasharray="6 4" />
+          {L(0, 0, w, h, 0.8)}{L(w, 0, 0, h, 0.8)}
+          <rect x={w / 2 - 90} y={h / 2 - 16} width={180} height={32} rx={4} fill="var(--sheet)" stroke="none" />
+          {T(w / 2, h / 2 - 2, name || "?", 13, "middle", 700)}{T(w / 2, h / 2 + 12, "picture not loaded", 10, "middle", 400, "var(--muted)")}</>,
+        [0, 0, w, h]);
     }
     case 8023: { // push button on the PC_SIMU panel, linked to an input address
       return g(<>

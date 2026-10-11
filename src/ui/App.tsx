@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useState, useEffect, useRef, useMemo } from "react";
 import { CAD_CATALOG_NAMES, RAW_CAT, RAW_NAMES, rawTerminals } from "../cad/catalog";
+import { addImage, imageOf, isImageFile } from "./images";
 import { parseCad, writeCad } from "../cad/format";
 import { useLang, useHistory, usePersist, useSaver, useFlash, useKeys, useTitle, nid, safeName } from "../shared/hooks";
 import { COMMON, readLang } from "../shared/i18n";
@@ -250,8 +251,13 @@ export function App({onHome}={}){
       const d=JSON.parse(txt);const cs=d.components||d.comps,ws=d.wires;if(!Array.isArray(cs)||!Array.isArray(ws))throw 0;
       loadDrawing({comps:cs.filter(c=>DEFS[c.type]),wires:ws,name:d.name,cadOrder:d.cadOrder,cadFooter:d.cadFooter},t.loaded);
     }catch(e){setMsg(t.badFile);}};
-  const onFile=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
-    r.onload=()=>importText(r.result,f.name);r.readAsText(f,'windows-1252');e.target.value='';};
+  const [,setImgTick]=useState(0);
+  /* pictures named in the drawing (code 9) can be chosen together with the .cad file, or later from the inspector */
+  const addImages=async fs=>{const got=[];for(const f of fs){try{got.push(await addImage(f));}catch(e){}}
+    if(got.length){setImgTick(n=>n+1);setMsg(t.imgLoaded(got.join(', ')));}return got;};
+  const onFile=async e=>{const all=[...e.target.files];e.target.value='';const imgs=all.filter(isImageFile),f=all.find(x=>!isImageFile(x));
+    if(imgs.length)await addImages(imgs);if(!f)return;const r=new FileReader();
+    r.onload=()=>importText(r.result,f.name);r.readAsText(f,'windows-1252');};
   const copy=async txt=>{try{await navigator.clipboard.writeText(txt);setMsg(t.copied);}catch(e){const ta=document.getElementById('exp');ta&&ta.select();setMsg(t.copyManual);}};
   const saveFile=async()=>{if(!dl){setMsg(t.noSave);return;}
     try{
@@ -301,6 +307,9 @@ export function App({onHome}={}){
             <text x="210" y="44">{comps.filter(c=>DEFS[c.type].kind!=='src').length} parts</text><text x="210" y="60">{wires.length} wires</text>
           </g>
 
+          {/* pictures (CADe SIMU code 9) lie under the wires and parts, as in CADe SIMU */}
+          {comps.filter(c=>c.type==='raw'&&c.cad.code===9).map(c=>{const n=c.cad.nums,xi=n.length-15,rs=rawSym(c.cad,(n[xi]-c.x*3)*5,(n[xi+1]-c.y*3)*5);
+            return rs&&(<g key={'pic'+c.id} transform={`translate(${c.x*G},${c.y*G})`} pointerEvents="none">{rs.node}</g>);})}
           {wires.map(w=>{const e=elbow(w);const col=wireStroke(w);const pts=`${w.a[0]*G},${w.a[1]*G} ${e[0]*G},${e[1]*G} ${w.b[0]*G},${w.b[1]*G}`;
             const isSel=isSelW(w.id);const live=res&&nodeColor(w.a);
             return (<g key={w.id} data-wid={w.id}>
@@ -312,7 +321,7 @@ export function App({onHome}={}){
           {comps.map(c=>{const d=DEFS[c.type];const ps=pinsOf(c);
             let s={cs:ps.map(nodeColor),color:c.color,code:c.cad&&c.cad.code,cname:c.cad&&CAD_CATALOG_NAMES[c.cad.code],tag:c.tag,tag2:c.tag2};
             if(c.type==='raw'){const n=c.cad.nums,xi=n.length-15;if(RAW_NAMES[c.cad.code]){s.name=RAW_NAMES[c.cad.code];s.cat=RAW_CAT[c.cad.code];s.terms=rawTerminals(c.cad.text);const bw=Math.max(n[xi+6],12),bh=Math.max(n[xi+7],12);s.big=c.cad.code>=10204&&c.cad.code<=10208?[-30,-8,Math.max(bw*5,90),bh*5]:[n[xi+4]*5,n[xi+5]*5,Math.max(bw*5,96),Math.max(bh*5,60)];}
-              else if(RAW_DRAWN.has(c.cad.code)){const rs=rawSym(c.cad,(n[xi]-c.x*3)*5,(n[xi+1]-c.y*3)*5);if(rs){s.custom=rs.node;s.hit=rs.box;}}
+              else if(RAW_DRAWN.has(c.cad.code)){const rs=rawSym(c.cad,(n[xi]-c.x*3)*5,(n[xi+1]-c.y*3)*5);if(rs){s.custom=c.cad.code===9?<g/>:rs.node;s.hit=rs.box;}}
               else if(n[xi+2]||n[xi+3])s.line=[Math.round(n[xi+2]/3)*G-c.x*G,Math.round(n[xi+3]/3)*G-c.y*G];}
             if(res&&d.kind==='plc')s.plc=res.plc&&res.plc[c.id];if(res&&d.kind==='psu')s.on=!!res.coils['pwr:'+c.id];
             if(res){if(d.kind==='load'){s.on=res.loads[c.id];s.dir=res.dir[c.id];s.yd=res.yd&&res.yd[c.id];if(/^tcoil/.test(c.type)){const m=res.tm[c.tag];s.done=!!(m&&(c.type==='tcoil'?m.ton:c.type==='tcoil_off'?m.toff:m.tboth));}}
@@ -324,7 +333,8 @@ export function App({onHome}={}){
             const hit=s.hit?{x:s.hit[0],y:s.hit[1],width:s.hit[2],height:s.hit[3]}:s.big?{x:s.big[0],y:s.big[1],width:s.big[2],height:s.big[3]}:s.line?{x:Math.min(0,s.line[0])-4,y:Math.min(0,s.line[1])-4,width:Math.abs(s.line[0])+8,height:Math.abs(s.line[1])+8}:d.box||BOX2;
             const interactive=mode==='sim'&&(['pb','th'].includes(d.act)||!!d.latch||!!d.toggle||!!d.trip);const linked=mode==='sim'&&!!d.link;
             return (<g key={c.id} data-cid={c.id} transform={`translate(${c.x*G},${c.y*G})${c.rot?` rotate(${90*c.rot})`:''}`} style={{cursor:interactive?'pointer':linked?'help':mode==='edit'&&tool==='select'?'move':null}}>
-              <rect {...hit} fill={interactive?'color-mix(in srgb,var(--accent) 10%,transparent)':'transparent'} stroke={isSel?'var(--sel)':'none'} strokeDasharray="4 3" rx="4"/>
+              <rect {...hit} fill={interactive?'color-mix(in srgb,var(--accent) 10%,transparent)':'transparent'} stroke={isSel?'var(--sel)':'none'} strokeDasharray="4 3" rx="4"
+                {...(c.type==='raw'&&c.cad.code===9?{pointerEvents:'stroke',strokeWidth:10}:{})}/>
               <Sym type={c.type} s={s}/>
               {mode==='edit'&&d.pins.map((pp,i)=>(<circle key={i} cx={pp[0]*G} cy={pp[1]*G} r="2.6" fill="var(--sheet)" stroke="currentColor" strokeWidth="1.4"/>))}
             </g>);})}
@@ -353,6 +363,10 @@ export function App({onHome}={}){
           <div className="row" style={{flexWrap:'wrap'}}><button onClick={rotSel}>{t.rotate}</button><button onClick={()=>copySel()}>{t.copySel}</button><button onClick={duplicate}>{t.dupSel}</button><button onClick={delSel}>{t.del}</button></div>
           <div className="field" style={{marginTop:'12px'}}><label>CADe SIMU</label><p className="hint" style={{margin:'0 0 6px'}}>{t.toCadeHint}</p>
             <button className="go" onClick={saveSelCad}>{t.saveSelCad}</button></div></>)
+        :selC&&selC.type==='raw'&&selC.cad.code===9?(<><h3>{t.imgTitle}</h3><div className="mono hint" dir="ltr">{(selC.cad.trail||'').trim()}</div>
+          <p className="hint">{imageOf(selC.cad.trail)?t.imgHave:t.imgMissing}</p>
+          <div className="row"><button onClick={()=>document.getElementById('imgfile').click()}>{t.imgLoad}</button><input id="imgfile" type="file" accept="image/*,.bmp" style={{display:'none'}} onChange={async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+            const want=(selC.cad.trail||'').trim();const named=new File([f],want||f.name,{type:f.type});await addImages([named]);}}/><button onClick={del}>{t.del}</button></div></>)
         :selC&&selC.type==='raw'?(<><h3>{CAD_CATALOG_NAMES[selC.cad.code]||t.rawTitle}</h3><p className="hint">{t.rawHint(selC.cad.code)}</p><div className="mono hint" dir="ltr">{selC.tag||''}</div><div className="row"><button onClick={del}>{t.del}</button></div></>)
         :selC?(<><About t={t} lang={lang} type={selC.type}/><div style={{height:'6px'}}></div>
           {(DEFS[selC.type].kind!=='src'||selC.type==='supply')&&selC.type!=='interlock'&&(<div className="field"><label htmlFor="tag">{DEFS[selC.type].link?t.tagLink:t.tag}</label>
@@ -392,7 +406,7 @@ export function App({onHome}={}){
       <span className="spacer"></span><span>{t.autosave}</span>
     </>}
     overlay={dlg==='io'&&(<Dialog lang={lang} title={t.ioTitle} onClose={()=>setDlg(null)}>
-        <div className="row"><label className="hint" htmlFor="file">{t.openFile}</label><input id="file" type="file" accept=".cad,.json,.txt" onChange={onFile} style={{maxWidth:'100%'}}/></div>
+        <div className="row"><label className="hint" htmlFor="file">{t.openFile}</label><input id="file" type="file" accept=".cad,.json,.txt,.bmp,.png,.jpg,.jpeg,.gif,.webp" multiple onChange={onFile} style={{maxWidth:'100%'}}/></div>
         <div className="seg" role="group" style={{justifySelf:'start'}}>
           <button className={fmt==='cad'?'on':''} onClick={()=>setFmt('cad')}>{t.fmtCad}</button>
           <button className={fmt==='json'?'on':''} onClick={()=>setFmt('json')}>{t.fmtJson}</button>

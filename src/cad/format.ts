@@ -163,6 +163,8 @@ export function writeCad({comps,wires,dots,order,footer,netOf,pinsOf}: WriteCadI
   [...comps,...wires].forEach(o=>{if(o.cad)allIds.push(o.cad.id);});
   next=Math.max(0,...allIds)+1;
   const byKey={},fresh=[];let skipped=0;
+  // a coordinate off the grid in the file (CADe SIMU allows it) is kept while the item stays on the same grid point
+  const keep=(v,gp)=>Math.round(v/CADU)===gp?v:gp*CADU;
   const partRec=c=>{
     const code=c.type==='raw'?c.cad.code:(c.cad&&CAD_PARTS[c.cad.code]&&CAD_PARTS[c.cad.code].type===c.type?c.cad.code:TYPE_TO_CAD[c.type]);
     if(!code){skipped++;return null;}
@@ -178,11 +180,11 @@ export function writeCad({comps,wires,dots,order,footer,netOf,pinsOf}: WriteCadI
       const dash=v=>!v||v.startsWith('-')?'-':'';f[0]=c.tag?dash(f[0])+c.tag:'';if(c.type==='interlock')f[1]=c.tag2?dash(f[1])+c.tag2:'';if(/^tcoil/.test(c.type)&&f.length>5&&String(+c.delay||3)!==f[5])f[5]=String(+c.delay||3);r.text=f.join('#');r.nums[xi+9]=(r.nums[xi+9]&~3)|(c.rot||0); // upper bits (mirroring) kept
       const ps=pinsOf?pinsOf(c):[];const nz=/^(coil|motor|supply)/.test(c.type);
       if(hasNet&&ps.length>=2){r.nums[xi+13]=nz?0:netOf(ps[0]);r.nums[xi+14]=nz?0:netOf(ps[1]);}}
-    r.nums[xi]=c.x*CADU;r.nums[xi+1]=c.y*CADU;
+    r.nums[xi]=keep(r.nums[xi],c.x);r.nums[xi+1]=keep(r.nums[xi+1],c.y);
     return recStr(r);};
   const wireRec=w=>{const code=CAD_WIRE_CODE[w.kind||'ph'];
     const r=w.cad?{...w.cad,code,nums:[...w.cad.nums]}:{id:next++,code,text:'#########',nums:Array(23).fill(0),trail:''};
-    const xi=XI(r);r.nums[xi]=w.a[0]*CADU;r.nums[xi+1]=w.a[1]*CADU;r.nums[xi+2]=w.b[0]*CADU;r.nums[xi+3]=w.b[1]*CADU;if(hasNet||!w.cad)r.nums[xi+13]=netOf(w.a);
+    const xi=XI(r);r.nums[xi]=keep(r.nums[xi],w.a[0]);r.nums[xi+1]=keep(r.nums[xi+1],w.a[1]);r.nums[xi+2]=keep(r.nums[xi+2],w.b[0]);r.nums[xi+3]=keep(r.nums[xi+3],w.b[1]);if(hasNet||!w.cad)r.nums[xi+13]=netOf(w.a);
     return recStr(r);};
   const usedKeys=new Set();
   comps.forEach(c=>{
