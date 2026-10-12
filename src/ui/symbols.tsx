@@ -98,10 +98,14 @@ export function Contact({d,s}){
 }
 /* PLC and power supply: the controller's picture, each terminal joined to its screw by a short lead;
    in simulation a ring marks the inputs/outputs that are on and a green frame shows the device is powered */
-function PicSym({pins,pic,s,lit}){const cs=s.cs||[],[iw,ih]=PLC_IMG_SIZE[pic.img],[cx,cy,cw,ch]=pic.crop,k=pic.k;
+function PicImg({pic}){const [iw,ih]=PLC_IMG_SIZE[pic.img],[cx,cy,cw,ch]=pic.crop;
+  return (<svg x={pic.x} y={pic.y} width={pic.w} height={pic.h} viewBox={`${cx} ${cy} ${cw} ${ch}`} overflow="hidden">
+    <image href={PLC_IMG[pic.img]} x={0} y={0} width={iw} height={ih} preserveAspectRatio="none"/></svg>);}
+/** the picture alone, drawn by the editor under the wires (the terminals and leads stay on top) */
+export function PartPicture({type}){const pic=type==='psu24'?psuLayout().pic:DEFS[type]&&DEFS[type].kind==='plc'?plcLayout(type).pic:null;return pic?<PicImg pic={pic}/>:null;}
+function PicSym({pins,pic,s,lit}){const cs=s.cs||[],k=pic.k;
   return (<>
-    <svg x={pic.x} y={pic.y} width={pic.w} height={pic.h} viewBox={`${cx} ${cy} ${cw} ${ch}`} overflow="hidden">
-      <image href={PLC_IMG[pic.img]} x={0} y={0} width={iw} height={ih} preserveAspectRatio="none"/></svg>
+    {!s.noPic&&<PicImg pic={pic}/>}
     <rect x={pic.x} y={pic.y} width={pic.w} height={pic.h} fill="none" stroke={s.on||(s.plc&&s.plc.on)?'var(--ok)':'color-mix(in srgb,var(--ink) 25%,transparent)'} strokeWidth={s.on||(s.plc&&s.plc.on)?3:1}/>
     {pins.map((p,i)=>{const x=p.x*15,y=p.y*15,on=lit&&lit(p);
       const col=cs[i]||(p.role==='L'?'var(--live)':p.role==='N'?'var(--neu)':p.role==='pe'?'var(--pe)':'currentColor');

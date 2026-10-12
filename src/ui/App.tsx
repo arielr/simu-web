@@ -12,7 +12,7 @@ import { I18N } from "../i18n/strings";
 import { elbow, key, onSeg, pinsOf, rotV, wireNet } from "../model/geometry";
 import { BOX2, DEFS, G, H, LAMP, NC_TYPES, PALETTE_HIDE, VARIANTS, W } from "../model/parts";
 import { actuated, closed, solve } from "../sim/solve";
-import { About, Icon, Sym } from "./symbols";
+import { About, Icon, PartPicture, Sym } from "./symbols";
 import { rawSym, RAW_DRAWN } from "./rawSyms";
 import { parseProgram, plcAddrs } from "../model/plc";
 
@@ -307,9 +307,11 @@ export function App({onHome}={}){
             <text x="210" y="44">{comps.filter(c=>DEFS[c.type].kind!=='src').length} parts</text><text x="210" y="60">{wires.length} wires</text>
           </g>
 
+          {/* PLC and power-supply pictures lie under the wires, so the wires show on top of them */}
+          {comps.filter(c=>c.type==='psu24'||DEFS[c.type].kind==='plc').map(c=>(<g key={'pp'+c.id} data-cid={c.id} style={{cursor:mode==='edit'?'move':null}} transform={`translate(${c.x*G},${c.y*G})${c.rot?` rotate(${90*c.rot})`:''}`}><PartPicture type={c.type}/></g>))}
           {/* pictures (CADe SIMU code 9) lie under the wires and parts, as in CADe SIMU */}
           {comps.filter(c=>c.type==='raw'&&c.cad.code===9).map(c=>{const n=c.cad.nums,xi=n.length-15,rs=rawSym(c.cad,(n[xi]-c.x*3)*5,(n[xi+1]-c.y*3)*5);
-            return rs&&(<g key={'pic'+c.id} transform={`translate(${c.x*G},${c.y*G})`} pointerEvents="none">{rs.node}</g>);})}
+            return rs&&(<g key={'pic'+c.id} data-cid={c.id} style={{cursor:mode==='edit'?'move':null}} transform={`translate(${c.x*G},${c.y*G})`}>{rs.node}</g>);})}
           {wires.map(w=>{const e=elbow(w);const col=wireStroke(w);const pts=`${w.a[0]*G},${w.a[1]*G} ${e[0]*G},${e[1]*G} ${w.b[0]*G},${w.b[1]*G}`;
             const isSel=isSelW(w.id);const live=res&&nodeColor(w.a);
             return (<g key={w.id} data-wid={w.id}>
@@ -319,7 +321,7 @@ export function App({onHome}={}){
           {dots.map(p=>{const col=nodeColor(p);return (<circle key={'d'+key(p)} cx={p[0]*G} cy={p[1]*G} r="3.6" fill={col||'currentColor'} pointerEvents="none"/>);})}
 
           {comps.map(c=>{const d=DEFS[c.type];const ps=pinsOf(c);
-            let s={cs:ps.map(nodeColor),color:c.color,code:c.cad&&c.cad.code,cname:c.cad&&CAD_CATALOG_NAMES[c.cad.code],tag:c.tag,tag2:c.tag2};
+            let s={noPic:c.type==='psu24'||d.kind==='plc',cs:ps.map(nodeColor),color:c.color,code:c.cad&&c.cad.code,cname:c.cad&&CAD_CATALOG_NAMES[c.cad.code],tag:c.tag,tag2:c.tag2};
             if(c.type==='raw'){const n=c.cad.nums,xi=n.length-15;if(RAW_NAMES[c.cad.code]){s.name=RAW_NAMES[c.cad.code];s.cat=RAW_CAT[c.cad.code];s.terms=rawTerminals(c.cad.text);const bw=Math.max(n[xi+6],12),bh=Math.max(n[xi+7],12);s.big=c.cad.code>=10204&&c.cad.code<=10208?[-30,-8,Math.max(bw*5,90),bh*5]:[n[xi+4]*5,n[xi+5]*5,Math.max(bw*5,96),Math.max(bh*5,60)];}
               else if(RAW_DRAWN.has(c.cad.code)){const rs=rawSym(c.cad,(n[xi]-c.x*3)*5,(n[xi+1]-c.y*3)*5);if(rs){s.custom=c.cad.code===9?<g/>:rs.node;s.hit=rs.box;}}
               else if(n[xi+2]||n[xi+3])s.line=[Math.round(n[xi+2]/3)*G-c.x*G,Math.round(n[xi+3]/3)*G-c.y*G];}
@@ -334,7 +336,7 @@ export function App({onHome}={}){
             const interactive=mode==='sim'&&(['pb','th'].includes(d.act)||!!d.latch||!!d.toggle||!!d.trip);const linked=mode==='sim'&&!!d.link;
             return (<g key={c.id} data-cid={c.id} transform={`translate(${c.x*G},${c.y*G})${c.rot?` rotate(${90*c.rot})`:''}`} style={{cursor:interactive?'pointer':linked?'help':mode==='edit'&&tool==='select'?'move':null}}>
               <rect {...hit} fill={interactive?'color-mix(in srgb,var(--accent) 10%,transparent)':'transparent'} stroke={isSel?'var(--sel)':'none'} strokeDasharray="4 3" rx="4"
-                {...(c.type==='raw'&&c.cad.code===9?{pointerEvents:'stroke',strokeWidth:10}:{})}/>
+                {...(s.noPic||(c.type==='raw'&&c.cad.code===9)?{pointerEvents:'stroke',strokeWidth:10}:{})}/>
               <Sym type={c.type} s={s}/>
               {mode==='edit'&&d.pins.map((pp,i)=>(<circle key={i} cx={pp[0]*G} cy={pp[1]*G} r="2.6" fill="var(--sheet)" stroke="currentColor" strokeWidth="1.4"/>))}
             </g>);})}
