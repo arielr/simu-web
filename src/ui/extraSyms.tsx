@@ -47,15 +47,14 @@ function rotary(cx, xs, closedIdx, labels, cs, posLabelIdx) {
     <polyline points={`${mx - 18},24 ${mx - 22},24 ${mx - 22},36`} fill="none" stroke={ink} strokeWidth={1.8} /><L x1={mx - 22} y1={36} x2={mx - 26} y2={32} w={1.4} />
   </>);
 }
-function gateBox(sym, bubble, nIn, s, cs) {
-  const h = nIn === 2 ? 50 : 30, y0 = nIn === 2 ? -10 : -15, ys = nIn === 2 ? [0, 30] : [0];
-  const yq = nIn === 2 ? 15 : 0;
+function gateBox(sym, bubble, nIn, s, cs) { // as CADe SIMU: inputs at x 0, box from 3 to 12 units, output at 15 units in line with the last input
+  const ys = nIn === 2 ? [0, 30] : [0], yq = ys[ys.length - 1], h = nIn === 2 ? 60 : 30;
   return (<>
-    {ys.map((y, i) => <L key={i} x1={0} y1={y} x2={12} y2={y} c={cs[i]} />)}
-    {box(12, y0, 34, h, s.on)}
-    {T(29, yq + 5, sym, 13, "middle", 700)}
-    {bubble && <circle cx={50} cy={yq} r={4} fill="var(--sheet)" stroke={ink} strokeWidth={1.6} />}
-    <L x1={bubble ? 54 : 46} y1={yq} x2={60} y2={yq} c={cs[nIn]} />
+    {ys.map((y, i) => <L key={i} x1={0} y1={y} x2={15} y2={y} c={cs[i]} />)}
+    <rect x={15} y={-15} width={45} height={h} fill={s.on ? hot : "color-mix(in srgb,var(--muted) 18%,var(--sheet))"} stroke={ink} strokeWidth={2} />
+    {T(30, 2, sym, 12, "middle", 700)}
+    {bubble && <circle cx={64} cy={yq} r={4} fill="var(--sheet)" stroke={ink} strokeWidth={1.6} />}
+    <L x1={bubble ? 68 : 60} y1={yq} x2={75} y2={yq} c={cs[nIn]} />
   </>);
 }
 
@@ -162,9 +161,9 @@ export function ExtraSym({ type, s }) {
     case "lg_nor": return gateBox("≥1", true, 2, s, cs);
     case "lg_xor": return gateBox("=1", false, 2, s, cs);
     case "lg_not": return gateBox("1", true, 1, s, cs);
-    case "lg_sr": return (<>{gateBox("", false, 2, s, cs)}{T(18, 4, "S", 10, "start")}{T(18, 34, "R", 10, "start")}{T(42, 19, "Q", 10, "end")}</>);
+    case "lg_sr": return (<>{gateBox("", false, 2, s, cs)}{T(19, 4, "S", 10, "start")}{T(19, 34, "R", 10, "start")}{T(56, 34, "Q", 10, "end")}</>);
     case "lg_ton": case "lg_toff": return (<>{gateBox("", false, 1, s, cs)}
-      <polyline points={type === "lg_ton" ? "16,6 22,6 22,-6 40,-6" : "16,-6 34,-6 34,6 40,6"} fill="none" stroke={ink} strokeWidth={1.3} />{T(29, 13, (s.delay || 1) + "s", 8, "middle", 500)}</>);
+      <polyline points={type === "lg_ton" ? "22,8 30,8 30,-6 52,-6" : "22,-6 44,-6 44,8 52,8"} fill="none" stroke={ink} strokeWidth={1.3} />{T(37, 12, (s.delay || 1) + "s", 8, "middle", 500)}</>);
   }
   return null;
 }

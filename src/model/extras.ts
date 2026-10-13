@@ -78,22 +78,22 @@ export const EXTRA_DEFS = {
   bar_tx: { group: 'sensor', prefix: 'B', kind: 'load', pins: [[0, 0], [0, 4]], plabels: ['1', '2'], load: [0, 1], drive: 'beam', box: B(-40, -4, 76, 68), lab: [22, 34] },
 
   /* logic: inputs at + are 1; the output gives + while it is 1 */
-  lg_and: { group: 'logic', prefix: 'U', kind: 'logic', pins: [[0, 0], [0, 2], [4, 1]], plabels: ['1', '2', 'Q'], logic: { fn: 'and', ins: [0, 1], out: 2 }, box: B(-6, -10, 72, 50), lab: [0, -14] },
-  lg_or: { group: 'logic', prefix: 'U', kind: 'logic', pins: [[0, 0], [0, 2], [4, 1]], plabels: ['1', '2', 'Q'], logic: { fn: 'or', ins: [0, 1], out: 2 }, box: B(-6, -10, 72, 50), lab: [0, -14] },
-  lg_nand: { group: 'logic', prefix: 'U', kind: 'logic', pins: [[0, 0], [0, 2], [4, 1]], plabels: ['1', '2', 'Q'], logic: { fn: 'nand', ins: [0, 1], out: 2 }, box: B(-6, -10, 72, 50), lab: [0, -14] },
-  lg_nor: { group: 'logic', prefix: 'U', kind: 'logic', pins: [[0, 0], [0, 2], [4, 1]], plabels: ['1', '2', 'Q'], logic: { fn: 'nor', ins: [0, 1], out: 2 }, box: B(-6, -10, 72, 50), lab: [0, -14] },
-  lg_xor: { group: 'logic', prefix: 'U', kind: 'logic', pins: [[0, 0], [0, 2], [4, 1]], plabels: ['1', '2', 'Q'], logic: { fn: 'xor', ins: [0, 1], out: 2 }, box: B(-6, -10, 72, 50), lab: [0, -14] },
-  lg_not: { group: 'logic', prefix: 'U', kind: 'logic', pins: [[0, 0], [4, 0]], plabels: ['1', 'Q'], logic: { fn: 'not', ins: [0], out: 1 }, box: B(-6, -16, 72, 32), lab: [0, -20] },
-  lg_sr: { group: 'logic', prefix: 'U', kind: 'logic', pins: [[0, 0], [0, 2], [4, 1]], plabels: ['S', 'R', 'Q'], logic: { fn: 'sr', ins: [0, 1], out: 2 }, box: B(-6, -10, 72, 50), lab: [0, -14] },
-  lg_ton: { group: 'logic', prefix: 'T', kind: 'logic', pins: [[0, 0], [4, 0]], plabels: ['IN', 'Q'], logic: { fn: 'ton', ins: [0], out: 1 }, timed: 1, box: B(-6, -16, 72, 32), lab: [0, -20] },
-  lg_toff: { group: 'logic', prefix: 'T', kind: 'logic', pins: [[0, 0], [4, 0]], plabels: ['IN', 'Q'], logic: { fn: 'toff', ins: [0], out: 1 }, timed: 1, box: B(-6, -16, 72, 32), lab: [0, -20] },
+  lg_and: { group: 'logic', prefix: 'U', kind: 'logic', pins: [[0, 0], [0, 2], [5, 2]], plabels: ['1', '2', 'Q'], logic: { fn: 'and', ins: [0, 1], out: 2 }, box: B(-4, -20, 84, 70), lab: [16, -20] },
+  lg_or: { group: 'logic', prefix: 'U', kind: 'logic', pins: [[0, 0], [0, 2], [5, 2]], plabels: ['1', '2', 'Q'], logic: { fn: 'or', ins: [0, 1], out: 2 }, box: B(-4, -20, 84, 70), lab: [16, -20] },
+  lg_nand: { group: 'logic', prefix: 'U', kind: 'logic', pins: [[0, 0], [0, 2], [5, 2]], plabels: ['1', '2', 'Q'], logic: { fn: 'nand', ins: [0, 1], out: 2 }, box: B(-4, -20, 84, 70), lab: [16, -20] },
+  lg_nor: { group: 'logic', prefix: 'U', kind: 'logic', pins: [[0, 0], [0, 2], [5, 2]], plabels: ['1', '2', 'Q'], logic: { fn: 'nor', ins: [0, 1], out: 2 }, box: B(-4, -20, 84, 70), lab: [16, -20] },
+  lg_xor: { group: 'logic', prefix: 'U', kind: 'logic', pins: [[0, 0], [0, 2], [5, 2]], plabels: ['1', '2', 'Q'], logic: { fn: 'xor', ins: [0, 1], out: 2 }, box: B(-4, -20, 84, 70), lab: [16, -20] },
+  lg_not: { group: 'logic', prefix: 'U', kind: 'logic', pins: [[0, 0], [5, 0]], plabels: ['1', 'Q'], logic: { fn: 'not', ins: [0], out: 1 }, box: B(-4, -20, 84, 40), lab: [16, -20] },
+  lg_sr: { group: 'logic', prefix: 'U', kind: 'logic', pins: [[0, 0], [0, 2], [5, 2]], plabels: ['S', 'R', 'Q'], logic: { fn: 'sr', ins: [0, 1], out: 2 }, box: B(-4, -20, 84, 70), lab: [16, -20] },
+  lg_ton: { group: 'logic', prefix: 'T', kind: 'logic', pins: [[0, 0], [5, 0]], plabels: ['IN', 'Q'], logic: { fn: 'ton', ins: [0], out: 1 }, timed: 1, box: B(-4, -20, 84, 40), lab: [16, -20] },
+  lg_toff: { group: 'logic', prefix: 'T', kind: 'logic', pins: [[0, 0], [5, 0]], plabels: ['IN', 'Q'], logic: { fn: 'toff', ins: [0], out: 1 }, timed: 1, box: B(-4, -20, 84, 40), lab: [16, -20] },
 };
 /* parts whose seconds (period, delay) or preset is set in the panel */
 export const TIMED = new Set(['flasher', 'pulse_gen', 'lg_ton', 'lg_toff']);
 
 /* CADe SIMU codes. Terminal names, label boxes and extra fields come from CADe SIMU's own records;
    terminal positions measured in CADe SIMU (VERIFIED below); the others are drawn here and not checked yet. */
-export const VERIFIED = new Set([1003, 1004, 1006, 1007, 1008, 1009, 1010, 1070, 1071, 1072, 1074, 1075, 3012, 3013, 3014, 3017, 3018, 7551, 7559, 8020, 8022]);
+export const VERIFIED = new Set([10000, 10010, 10020, 10030, 10040, 10041, 1003, 1004, 1006, 1007, 1008, 1009, 1010, 1070, 1071, 1072, 1074, 1075, 3012, 3013, 3014, 3017, 3018, 7551, 7559, 8020, 8022]);
 export const EXTRA_CAD = {
   8020: { type: 'sw_i0ii', labels: ['1', '2', '3'], box: [-18, -3, 12, 15], flags: [1,1,1,0,0,0,0,0] },
   8021: { type: 'sw_i3', labels: ['1', '2', '3', '4'], box: [-18, -3, 12, 15] },
