@@ -222,10 +222,15 @@ a.card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .doctabs .dt-add:first-of-type{font-size:18px}
 .doctabs .dt-add:hover{color:var(--ink);background:color-mix(in srgb,var(--ink) 7%,transparent)}
 
-/* group toolbar of the parts list (CADe SIMU order) */
-.drawer .grpbar{display:flex;flex-wrap:wrap;align-items:center;gap:2px;padding-bottom:6px;margin-bottom:6px;border-bottom:1px solid var(--line);width:100%}
-.drawer .gbtn{width:32px;height:32px;padding:0;display:grid;place-items:center;border:1px solid transparent;background:none;border-radius:6px;cursor:pointer}
-.drawer .gbtn svg{width:24px;height:26px}
-.drawer .gbtn:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}
-.drawer .gbtn.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
-.drawer .gsep{width:1px;height:24px;background:var(--line);margin:0 3px}
+/* group titles open the whole group with large pictures */
+.drawer .grpbtn{display:flex;justify-content:space-between;align-items:center;gap:6px;width:100%;text-align:start;border:none;background:none;padding:6px 4px 4px;cursor:pointer;color:inherit;font:inherit;border-radius:6px}
+.drawer .grpbtn span{opacity:0;font-size:12px}
+.drawer .grpbtn:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
+.drawer .grpbtn:hover span{opacity:.7}
+.bigparts{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;max-height:70vh;overflow:auto;padding:2px}
+.bigpart{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px;border:1px solid var(--line);border-radius:10px;background:var(--sheet);cursor:pointer;color:inherit;font:inherit;font-size:13px;text-align:center}
+.bigpart svg{width:96px;height:100px}
+.bigpart:hover{border-color:var(--accent)}
+.bigpart.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--sheet))}
+.dlg:has(.bigparts){width:min(920px,100%)}
+.bigpart svg.fl g,.bigpart svg.fl [stroke-width]{stroke-width:1.4px}
