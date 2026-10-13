@@ -92,3 +92,12 @@ describe("more CADe SIMU parts", () => {
     for (const t of ["lg_and", "lg_or", "step_relay", "relay_spdt", "ph_seq"]) expect(types.has(t)).toBe(true);
   });
 });
+
+describe("CADe SIMU limits", () => {
+  it("tags longer than 5 characters are shortened in .cad files (CADe SIMU closes on them)", async () => {
+    const { writeCad } = await import("../src/cad/format");
+    const out = writeCad({ comps: [{ id: "a", type: "step_relay", x: 4, y: 4, rot: 0, tag: "KA9001" }], wires: [], dots: [] } as any);
+    expect(out.text).toContain("#-KA900#");
+    expect(out.shortened).toBe(1);
+  });
+});

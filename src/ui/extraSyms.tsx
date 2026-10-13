@@ -24,7 +24,7 @@ function motor(s, cs, opts) {
   const top = (x) => cy - Math.sqrt(Math.max(0, r * r - (x - cx) ** 2)), bot = (x) => cy + Math.sqrt(Math.max(0, r * r - (x - cx) ** 2));
   return (<>
     {opts.top.map(([x, i]) => <L key={"t" + i} x1={x} y1={0} x2={x} y2={top(x)} c={cs[i]} />)}
-    {(opts.bot || []).map(([x, i]) => <L key={"b" + i} x1={x} y1={120} x2={x} y2={bot(x)} c={cs[i]} />)}
+    {(opts.bot || []).map(([x, i]) => <L key={"b" + i} x1={x} y1={opts.by ?? 120} x2={x} y2={bot(x)} c={cs[i]} />)}
     {opts.pe !== undefined && <polyline points={`${opts.pe},0 ${opts.pe},${cy} ${cx + r},${cy}`} fill="none" stroke="var(--pe)" strokeWidth="2" />}
     <circle cx={cx} cy={cy} r={r} fill={s.on ? "color-mix(in srgb,var(--accent) 22%,var(--sheet))" : "var(--sheet)"} stroke={ink} strokeWidth="2" />
     {T(cx, cy + 4, "M", 22)}{T(cx, cy + 24, opts.sub, 12, "middle", 500)}
@@ -117,9 +117,19 @@ export function ExtraSym({ type, s }) {
     case "motor_rotor": return motor(s, cs, { top: [[0, 0], [30, 1], [60, 2]], bot: [[0, 4], [30, 5], [60, 6]], pe: 90, cy: 60, sub: "3~",
       labels: [[0, 116, "K"], [30, 116, "L"], [60, 116, "M"]] });
     case "motor_3on1": return motor(s, cs, { top: [[0, 0], [30, 1], [60, 2]], pe: 90, sub: "3~ C" });
-    case "motor1b": return motor(s, cs, { top: [[0, 0], [30, 1]], bot: [[0, 3], [30, 4]], pe: 90, cy: 60, sub: "1~", labels: [[0, 10, "U1"], [30, 10, "V1"], [0, 116, "U2"], [30, 116, "V2"]] });
-    case "motor_dcpm": return motor(s, cs, { top: [[0, 0], [60, 1]], pe: 90, sub: "=" , labels: [[0, 10, "A1"], [60, 10, "A2"]] });
-    case "motor_dcsep": return (<>{motor(s, cs, { top: [[0, 0], [60, 1]], bot: [[0, 3], [60, 4]], pe: 90, cy: 60, sub: "=", labels: [[0, 10, "A1"], [60, 10, "A2"], [0, 116, "F1"], [60, 116, "F2"]] })}</>);
+    case "motor1b": return (<>{motor(s, cs, { top: [[0, 0], [60, 1]], bot: [[0, 3], [60, 4]], by: 135, pe: 90, cy: 60, sub: "1~", labels: [[0, 10, "U1"], [60, 10, "V1"], [0, 131, "U2"], [60, 131, "V2"]] })}
+      <L x1={-8} y1={112} x2={8} y2={112} w={1.8} /><L x1={-8} y1={117} x2={8} y2={117} w={1.8} /></>);
+    case "motor_dcpm": case "motor_dcsep": { // CADe SIMU: A1 left and A2 right of a small motor on the terminal row, PE below, field F1–F2 above
+      const sep = type === "motor_dcsep";
+      return (<><L x1={0} y1={0} x2={18} y2={0} c={cs[0]} /><L x1={72} y1={0} x2={90} y2={0} c={cs[1]} /><L x1={45} y1={25} x2={45} y2={45} c="var(--pe)" />
+        <rect x={16} y={-6} width={5} height={12} fill={ink} /><rect x={69} y={-6} width={5} height={12} fill={ink} />
+        <circle cx={45} cy={0} r={24} fill={on ? "color-mix(in srgb,var(--accent) 22%,var(--sheet))" : "var(--sheet)"} stroke={ink} strokeWidth={2} />
+        {T(45, -4, "M", 14)}<L x1={37} y1={6} x2={53} y2={6} w={1.4} /><L x1={37} y1={10} x2={41} y2={10} w={1.4} /><L x1={43} y1={10} x2={47} y2={10} w={1.4} /><L x1={49} y1={10} x2={53} y2={10} w={1.4} />
+        {sep ? <><L x1={0} y1={-45} x2={30} y2={-45} c={cs[3]} /><L x1={60} y1={-45} x2={90} y2={-45} c={cs[4]} /><rect x={30} y={-50} width={30} height={10} fill={ink} />{pinLab(0, -50, "F1")}{pinLab(80, -50, "F2")}</>
+          : <path d="M 33 -34 L 33 -40 L 57 -40 L 57 -34" fill="none" stroke={ink} strokeWidth={3} />}
+        {pinLab(0, 12, "A1")}{pinLab(78, 12, "A2")}{pinLab(48, 44, "PE")}
+        {on && <g><L x1={45} y1={-21} x2={45} y2={-14} c="var(--accent)" w={3} /><animateTransform attributeName="transform" type="rotate" from="0 45 0" to={`${s.dir < 0 ? -360 : 360} 45 0`} dur="0.8s" repeatCount="indefinite" /></g>}</>);
+    }
     case "brake": return (<><L x1={0} y1={0} x2={0} y2={24} c={cs[0]} /><L x1={30} y1={0} x2={30} y2={24} c={cs[1]} />
       <polyline points="60,0 60,40 44,40" fill="none" stroke="var(--pe)" strokeWidth="2" />{box(-10, 24, 54, 32, on)}{T(17, 45, "FR", 13, "middle", 700)}</>);
     case "psu_v": case "psu_v3": { // in 1 2 (3) on top, + − below, PE at the right side (as in CADe SIMU)

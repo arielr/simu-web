@@ -160,7 +160,9 @@ export function parseCad(text){
 export interface WriteCadInput { comps: any[]; wires: any[]; dots: number[][]; order?: any[] | null; footer?: string | null; netOf?: (p: number[]) => number; pinsOf?: (c: any) => number[][] }
 export function writeCad({comps,wires,dots,order,footer,netOf,pinsOf}: WriteCadInput){
   const hasNet=!!netOf;netOf=netOf||(()=>0);order=order||[{k:'header',s:CAD_DEFAULT_HEADER}];
-  let next=1;
+  let next=1,shortened=0;
+  // CADe SIMU closes on opening a file with a tag longer than 5 characters (after the dash): shorten them
+  const tag5=t=>{t=t||'';if(t.length>5){shortened++;return t.slice(0,5);}return t;};
   const allIds=[];order.forEach(o=>{const m=o.s&&/^\*(\d+)\*/.exec(o.s);if(m)allIds.push(+m[1]);});
   [...comps,...wires].forEach(o=>{if(o.cad)allIds.push(o.cad.id);});
   next=Math.max(0,...allIds)+1;
@@ -179,7 +181,7 @@ export function writeCad({comps,wires,dots,order,footer,netOf,pinsOf}: WriteCadI
     const xi=XI(r);
     if(c.type!=='raw'){const f=r.text.split('#');
       // keep the file's own style: CADe SIMU writes tags as '-KM1', but files may hold 'KM1'
-      const dash=v=>!v||v.startsWith('-')?'-':'';f[0]=c.tag?dash(f[0])+c.tag:'';if(c.type==='interlock')f[1]=c.tag2?dash(f[1])+c.tag2:'';if(/^tcoil/.test(c.type)&&f.length>5&&String(+c.delay||3)!==f[5])f[5]=String(+c.delay||3);r.text=f.join('#');r.nums[xi+9]=(r.nums[xi+9]&~3)|(c.rot||0); // upper bits (mirroring) kept
+      const dash=v=>!v||v.startsWith('-')?'-':'';f[0]=c.tag?dash(f[0])+tag5(c.tag):'';if(c.type==='interlock')f[1]=c.tag2?dash(f[1])+tag5(c.tag2):'';if(/^tcoil/.test(c.type)&&f.length>5&&String(+c.delay||3)!==f[5])f[5]=String(+c.delay||3);r.text=f.join('#');r.nums[xi+9]=(r.nums[xi+9]&~3)|(c.rot||0); // upper bits (mirroring) kept
       const ps=pinsOf?pinsOf(c):[];const nz=/^(coil|motor|supply)/.test(c.type);
       if(hasNet&&ps.length>=2){r.nums[xi+13]=nz?0:netOf(ps[0]);r.nums[xi+14]=nz?0:netOf(ps[1]);}}
     r.nums[xi]=keep(r.nums[xi],c.x);r.nums[xi+1]=keep(r.nums[xi+1],c.y);
@@ -206,7 +208,7 @@ export function writeCad({comps,wires,dots,order,footer,netOf,pinsOf}: WriteCadI
     else if(o.k==='obj'&&o.key in byKey)out.push(byKey[o.key]);});
   if(!hdrLast)out.push(...fresh);
   out.push(footer||CAD_DEFAULT_FOOTER);
-  return {text:out.join(''),skipped};
+  return {text:out.join(''),skipped,shortened};
 }
 export function latin1(str){const b=new Uint8Array(str.length);for(let i=0;i<str.length;i++){const c=str.charCodeAt(i);b[i]=c<256?c:63;}return b;}
 export function crc32(b){let crc=~0;for(let i=0;i<b.length;i++){crc^=b[i];for(let k=0;k<8;k++)crc=(crc>>>1)^(0xEDB88320&-(crc&1));}return ~crc>>>0;}

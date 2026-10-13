@@ -56,10 +56,10 @@ export const EXTRA_DEFS = {
   motor_rotor: { group: 'load', prefix: 'M', kind: 'load', pins: [[0, 0], [2, 0], [4, 0], [6, 0], [0, 8], [2, 8], [4, 8]], plabels: ['U1', 'V1', 'W1', 'PE', 'K', 'L', 'M'],
     load3: [0, 1, 2], box: B(-20, -4, 120, 132), lab: [-46, 64] },
   motor_3on1: { group: 'load', prefix: 'M', kind: 'load', pins: [[0, 0], [2, 0], [4, 0], [6, 0]], plabels: ['U1', 'V1', 'W1', 'PE'], load: [0, 1], box: B(-20, -4, 120, 128), lab: [-46, 80] },
-  motor1b: { group: 'load', prefix: 'M', kind: 'load', pins: [[0, 0], [2, 0], [6, 0], [0, 8], [2, 8]], plabels: ['U1', 'V1', 'PE', 'U2', 'V2'], load: [0, 1], box: B(-20, -4, 120, 132), lab: [-46, 64] },
-  motor_dcpm: { group: 'load', prefix: 'M', kind: 'load', pins: [[0, 0], [4, 0], [6, 0]], plabels: ['A1', 'A2', 'PE'], load: [0, 1], dc: true, box: B(-20, -4, 120, 128), lab: [-46, 80] },
-  motor_dcsep: { group: 'load', prefix: 'M', kind: 'load', pins: [[0, 0], [4, 0], [6, 0], [0, 8], [4, 8]], plabels: ['A1', 'A2', 'PE', 'F1', 'F2'], load: [0, 1], load2: [3, 4], dc: true,
-    box: B(-20, -4, 120, 132), lab: [-46, 64] },
+  motor1b: { group: 'load', prefix: 'M', kind: 'load', pins: [[0, 0], [4, 0], [6, 0], [0, 9], [4, 9]], plabels: ['U1', 'V1', 'PE', 'U2', 'V2'], load: [0, 1], box: B(-20, -4, 120, 147), lab: [-46, 64] },
+  motor_dcpm: { group: 'load', prefix: 'M', kind: 'load', pins: [[0, 0], [6, 0], [3, 3]], plabels: ['A1', 'A2', 'PE'], load: [0, 1], dc: true, box: B(-6, -30, 102, 82), lab: [-30, 30] },
+  motor_dcsep: { group: 'load', prefix: 'M', kind: 'load', pins: [[0, 0], [6, 0], [3, 3], [0, -3], [6, -3]], plabels: ['A1', 'A2', 'PE', 'F1', 'F2'], load: [0, 1], load2: [3, 4], dc: true,
+    box: B(-6, -56, 102, 108), lab: [-30, 30] },
   brake: { group: 'load', prefix: 'Fr', kind: 'load', pins: [[0, 0], [2, 0], [4, 0]], plabels: ['U1', 'V1', 'PE'], load: [0, 1], box: B(-14, -4, 88, 72), lab: [72, 40] },
 
   /* supplies */
@@ -93,7 +93,7 @@ export const TIMED = new Set(['flasher', 'pulse_gen', 'lg_ton', 'lg_toff']);
 
 /* CADe SIMU codes. Terminal names, label boxes and extra fields come from CADe SIMU's own records;
    terminal positions measured in CADe SIMU (VERIFIED below); the others are drawn here and not checked yet. */
-export const VERIFIED = new Set([1070, 1071, 1072, 1074, 1075, 3012, 3013, 3014, 3017, 3018, 7551, 7559, 8020, 8022]);
+export const VERIFIED = new Set([1003, 1004, 1006, 1007, 1008, 1009, 1010, 1070, 1071, 1072, 1074, 1075, 3012, 3013, 3014, 3017, 3018, 7551, 7559, 8020, 8022]);
 export const EXTRA_CAD = {
   8020: { type: 'sw_i0ii', labels: ['1', '2', '3'], box: [-18, -3, 12, 15], flags: [1,1,1,0,0,0,0,0] },
   8021: { type: 'sw_i3', labels: ['1', '2', '3', '4'], box: [-18, -3, 12, 15] },

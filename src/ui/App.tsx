@@ -430,7 +430,7 @@ function Editor({onHome,tab}){
           <button className={fmt==='json'?'on':''} onClick={()=>setFmt('json')}>{t.fmtJson}</button>
         </div>
         <p className="hint" style={{margin:0}}>{fmt==='cad'?(dl&&dl.kind==='browser'?t.ioHintCadDirect:t.ioHintCad):t.ioHintJson}</p>
-        {fmt==='cad'&&ioText&&(ioText.skipped>0||ioText.rotated)&&(<div className="note">{ioText.skipped>0&&(<div>{t.skipped(ioText.skipped)}</div>)}{ioText.rotated&&(<div>{t.rotWarn}</div>)}</div>)}
+        {fmt==='cad'&&ioText&&(ioText.skipped>0||ioText.rotated||ioText.shortened>0)&&(<div className="note">{ioText.shortened>0&&(<div>{t.tagCut(ioText.shortened)}</div>)}{ioText.skipped>0&&(<div>{t.skipped(ioText.skipped)}</div>)}{ioText.rotated&&(<div>{t.rotWarn}</div>)}</div>)}
         <textarea id="exp" key={fmt} defaultValue={ioText?ioText.text:''} spellCheck="false"></textarea>
         <div className="row">
           {dl&&(<button className="go" onClick={saveFile}>{fmt==='cad'&&dl.kind==='artifact'?t.saveZip:t.save}</button>)}
