@@ -45,10 +45,10 @@ export const EXTRA_DEFS = {
     box: B(-24, -4, 132, 68), lab: [100, 34] },
 
   /* phase monitoring relays: their contacts (same tag) close while the supply is healthy */
-  ph_loss: { group: 'prot', prefix: 'KP', kind: 'mon', pins: [[0, 0], [2, 0], [4, 0]], plabels: ['L1', 'L2', 'L3'], drive: 'phase', seq: false, neu: false, box: B(-14, -4, 88, 68), lab: [76, 34] },
-  ph_seq: { group: 'prot', prefix: 'KP', kind: 'mon', pins: [[0, 0], [2, 0], [4, 0]], plabels: ['L1', 'L2', 'L3'], drive: 'phase', seq: true, neu: false, box: B(-14, -4, 88, 68), lab: [76, 34] },
-  ph_nseq: { group: 'prot', prefix: 'KP', kind: 'mon', pins: [[0, 0], [2, 0], [4, 0], [6, 0]], plabels: ['L1', 'L2', 'L3', 'N'], drive: 'phase', seq: true, neu: true, box: B(-14, -4, 118, 68), lab: [106, 34] },
-  ph_nfault: { group: 'prot', prefix: 'KP', kind: 'mon', pins: [[0, 0], [2, 0], [4, 0], [6, 0]], plabels: ['L1', 'L2', 'L3', 'N'], drive: 'phase', seq: false, neu: true, box: B(-14, -4, 118, 68), lab: [106, 34] },
+  ph_loss: { group: 'prot', prefix: 'KP', kind: 'mon', pins: [[0, 0], [2, 0], [4, 0]], plabels: ['L1', 'L2', 'L3'], drive: 'phase', seq: false, neu: false, box: B(-18, -4, 96, 68), lab: [-44, 34] },
+  ph_seq: { group: 'prot', prefix: 'KP', kind: 'mon', pins: [[0, 0], [2, 0], [4, 0]], plabels: ['L1', 'L2', 'L3'], drive: 'phase', seq: true, neu: false, box: B(-18, -4, 96, 68), lab: [-44, 34] },
+  ph_nseq: { group: 'prot', prefix: 'KP', kind: 'mon', pins: [[0, 0], [2, 0], [4, 0], [0, 4]], plabels: ['L1', 'L2', 'L3', 'N'], drive: 'phase', seq: true, neu: true, box: B(-18, -4, 96, 68), lab: [-44, 34] },
+  ph_nfault: { group: 'prot', prefix: 'KP', kind: 'mon', pins: [[0, 0], [2, 0], [4, 0], [0, 4]], plabels: ['L1', 'L2', 'L3', 'N'], drive: 'phase', seq: false, neu: true, box: B(-18, -4, 96, 68), lab: [-44, 34] },
 
   /* motors */
   motor_dahl: { group: 'load', prefix: 'M', kind: 'load', pins: [[0, 0], [2, 0], [4, 0], [6, 0], [0, 8], [2, 8], [4, 8]], plabels: ['U1', 'V1', 'W1', 'PE', 'U2', 'V2', 'W2'],
@@ -93,7 +93,7 @@ export const TIMED = new Set(['flasher', 'pulse_gen', 'lg_ton', 'lg_toff']);
 
 /* CADe SIMU codes. Terminal names, label boxes and extra fields come from CADe SIMU's own records;
    terminal positions measured in CADe SIMU (VERIFIED below); the others are drawn here and not checked yet. */
-export const VERIFIED = new Set([10000, 10010, 10020, 10030, 10040, 10041, 1003, 1004, 1006, 1007, 1008, 1009, 1010, 1070, 1071, 1072, 1074, 1075, 3012, 3013, 3014, 3017, 3018, 7551, 7559, 8020, 8022]);
+export const VERIFIED = new Set([9040, 9041, 9042, 9043, 10000, 10010, 10020, 10030, 10040, 10041, 1003, 1004, 1006, 1007, 1008, 1009, 1010, 1070, 1071, 1072, 1074, 1075, 3012, 3013, 3014, 3017, 3018, 7551, 7559, 8020, 8022]);
 export const EXTRA_CAD = {
   8020: { type: 'sw_i0ii', labels: ['1', '2', '3'], box: [-18, -3, 12, 15], flags: [1,1,1,0,0,0,0,0] },
   8021: { type: 'sw_i3', labels: ['1', '2', '3', '4'], box: [-18, -3, 12, 15] },

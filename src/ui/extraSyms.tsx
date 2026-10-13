@@ -104,13 +104,11 @@ export function ExtraSym({ type, s }) {
       {[0, 30, 60, 90].map((x, i) => <L key={i} x1={x} y1={0} x2={x} y2={20} c={cs[i]} />)}<L x1={0} y1={40} x2={0} y2={60} c={cs[4]} />
       {box(-12, 20, 114, 20, on)}{T(45, 34, `${s.cnt || 0} / ${s.preset || d.preset}`, 11)}
       {["A1", "C", "D", "R"].map((t, i) => <g key={t}>{pinLab(i * 30 + 3, 10, t)}</g>)}{pinLab(3, 56, "A2")}</>);
-    case "ph_loss": case "ph_seq": case "ph_nseq": case "ph_nfault": {
-      const n = d.pins.length, w = (n - 1) * 30 + 24;
-      return (<>{d.pins.map((p, i) => <L key={i} x1={i * 30} y1={0} x2={i * 30} y2={20} c={cs[i]} />)}
-        {box(-12, 20, w, 26, false)}{T(w / 2 - 12, 37, d.seq ? "L1→L2→L3" : d.neu ? "3~ + N" : "3~", 10)}
-        <circle cx={w - 18} cy={26} r={3.5} fill={on ? "var(--ok)" : "color-mix(in srgb,var(--muted) 30%,transparent)"} />
-        {d.plabels.map((t, i) => <g key={t}>{pinLab(i * 30 + 3, 10, t)}</g>)}</>);
-    }
+    case "ph_loss": case "ph_seq": case "ph_nseq": case "ph_nfault": // as CADe SIMU: L1 L2 L3 on top, N below the first one; F = fault / loss, S = sequence
+      return (<>{[0, 30, 60].map((x, i) => <L key={i} x1={x} y1={0} x2={x} y2={15} c={cs[i]} />)}{d.neu && <L x1={0} y1={45} x2={0} y2={60} c={cs[3]} />}
+        {box(-15, 15, 90, 30, false)}{T(30, 35, d.seq ? "S" : "F", 13, "middle", 700)}
+        <circle cx={66} cy={23} r={3.5} fill={on ? "var(--ok)" : "color-mix(in srgb,var(--muted) 30%,transparent)"} />
+        {["L1", "L2", "L3"].map((t, i) => <g key={t}>{pinLab(i * 30 + 3, 10, t)}</g>)}{d.neu && pinLab(3, 58, "N")}</>);
     case "motor_dahl": return motor(s, cs, { top: [[0, 0], [30, 1], [60, 2]], bot: [[0, 4], [30, 5], [60, 6]], pe: 90, cy: 60, sub: "3~ " + (s.speed ? (s.speed === "2" ? "▲▲" : "▲") : "1/2"),
       labels: [[0, 10, "U1"], [30, 10, "V1"], [60, 10, "W1"], [0, 116, "U2"], [30, 116, "V2"], [60, 116, "W2"]] });
     case "motor_rotor": return motor(s, cs, { top: [[0, 0], [30, 1], [60, 2]], bot: [[0, 4], [30, 5], [60, 6]], pe: 90, cy: 60, sub: "3~",
