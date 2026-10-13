@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { CAD_CATALOG_NAMES, RAW_NAMES } from "../cad/catalog";
+import { ES } from "./strings.es";
 
 export const I18N={
  en:{dir:'ltr',home:'All programs',elecTitle:'Electrical',
@@ -92,4 +93,6 @@ export const I18N={
   timerKind:{ton:(g,d)=>`מתחלף ${d} שניות אחרי שהסליל ${g} מופעל.`,toff:(g,d)=>`מתחלף מיד כשהסליל ${g} מופעל וחוזר ${d} שניות אחרי שהוא נופל.`,tboth:(g,d)=>`מתחלף ${d} שניות אחרי הפעלת ${g} וחוזר ${d} שניות אחרי שהוא נופל.`},
   ilHint:'נעילה מכנית: שני המגענים לא יכולים להיסגר יחד. המגען שכבר סגור חוסם את השני.',
   lang:'שפה'}
+,
+ es:ES
 };

@@ -10,7 +10,7 @@ Three circuit programs in the browser, sharing one code base:
 | `/hydraulic/` | hydraulic circuits: edit + simulate | FluidSIM H `.ct` |
 
 For the user they are separate programs (own page, own library, own saved drawing);
-only the language setting is shared.
+only the language setting (English, Spanish, Hebrew) is shared.
 
 ## Run
 

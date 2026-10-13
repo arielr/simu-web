@@ -37,6 +37,21 @@ const TX = {
     markHead: ["סימון", "התחלה", "סוף"], markHint: "מגעים, חיישני קרבה ושסתומי גלגלת עם אותה תווית מופעלים כשהבוכנה בין ההתחלה לסוף.",
     ok: "אישור", cancel: "ביטול",
   },
+  es: {
+    title: "Configurar cilindro", tabs: ["Configuración", "Parámetros", "Carga externa", "Perfil de fuerza", "Marcas"],
+    name: "Nombre del componente", rodType: "Vástago", one: "Un vástago", two: "Dos vástagos", none: "Sin vástago", through: "Vástago pasante",
+    magnetic: "Acoplamiento magnético", slide: "Con carro", cylType: "Tipo de cilindro", saExt: "Simple efecto (avance)", saRet: "Simple efecto (retroceso)",
+    da: "Doble efecto", spring: "Muelle de retorno", props: "Propiedades", damping: "Amortiguación", adj: "regulable", detect: "Detección", mark: "Marca",
+    mirror: "Simetría", horiz: "Horizontal", vert: "Vertical",
+    stroke: "Carrera máxima", pos: "Posición del émbolo", dP: "Diámetro del émbolo", dR: "Diámetro del vástago", angle: "Ángulo de montaje", leak: "Fuga interna",
+    calc: "Calculado", ak: "Superficie del émbolo", ar: "Superficie anular", show: "Mostrar valores", vel: "Velocidad [m/s]", force: "Fuerza [N]",
+    mass: "Masa en movimiento", friction: "Rozamiento", material: "Elegir material", manual: "Introducir a mano", muS: "Coeficiente de rozamiento estático", muD: "Coeficiente de rozamiento dinámico",
+    note: "La fuerza de rozamiento también depende del ángulo de montaje (ver Parámetros).",
+    constF: "Fuerza constante", varF: "Fuerza variable", range: "Rango", del: "Borrar", delAll: "Borrar todo", pPos: "Posición del émbolo", fAxis: "Fuerza [N]", xAxis: "Posición del émbolo [mm]",
+    graphHint: "Haz clic en el gráfico para añadir un punto; arrastra los puntos para moverlos. Una fuerza positiva actúa contra el avance.",
+    markHead: ["Marca", "Inicio", "Fin"], markHint: "Los contactos, detectores de proximidad y válvulas de rodillo con la misma etiqueta se accionan mientras el émbolo está entre Inicio y Fin.",
+    ok: "Aceptar", cancel: "Cancelar",
+  },
 };
 type T = typeof TX.en;
 
@@ -184,7 +199,7 @@ export function CylDialog({ lang, initial, hydraulic, onApply, onClose }: {
         <fieldset><legend>{t.friction}</legend>
           <Rad name="fr" on={c.friction > 0} set={() => up({ friction: c.friction || 1 })}>{t.material}</Rad>
           <div className="ind mats">{MATERIALS.map((m, i) => (
-            <label key={i} className={"ck" + (c.friction ? "" : " dis")}><input type="radio" name="mat" disabled={!c.friction} checked={c.friction === i + 1} onChange={() => up({ friction: i + 1 })} /> {lang === "he" ? m.he : m.en} <span className="unit" dir="ltr">μ {m.s} / {m.d}</span></label>))}</div>
+            <label key={i} className={"ck" + (c.friction ? "" : " dis")}><input type="radio" name="mat" disabled={!c.friction} checked={c.friction === i + 1} onChange={() => up({ friction: i + 1 })} /> {(m as any)[lang] || m.en} <span className="unit" dir="ltr">μ {m.s} / {m.d}</span></label>))}</div>
           <Rad name="fr" on={c.friction === 0} set={() => up({ friction: 0 })}>{t.manual}</Rad>
           <div className="ind">
             <Num label={t.muS} value={c.muS} set={(v) => up({ muS: v })} min={0} max={2} step={0.01} unit="" disabled={c.friction > 0} />

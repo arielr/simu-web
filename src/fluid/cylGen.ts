@@ -36,13 +36,13 @@ export interface CylConfig {
 }
 
 /** approximate static / dynamic friction coefficients (dry) */
-export const MATERIALS: { en: string; he: string; s: number; d: number }[] = [
-  { en: "Steel on steel", he: "פלדה על פלדה", s: 0.74, d: 0.57 },
-  { en: "Cast iron on cast iron", he: "יציקה על יציקה", s: 1.1, d: 0.15 },
-  { en: "Wood on wood", he: "עץ על עץ", s: 0.5, d: 0.3 },
-  { en: "Steel on wood", he: "פלדה על עץ", s: 0.5, d: 0.4 },
-  { en: "Steel on ice", he: "פלדה על קרח", s: 0.03, d: 0.02 },
-  { en: "Tyre on asphalt", he: "צמיג על אספלט", s: 0.9, d: 0.8 },
+export const MATERIALS: { en: string; he: string; es: string; s: number; d: number }[] = [
+  { en: "Steel on steel", he: "פלדה על פלדה", es: "Acero sobre acero", s: 0.74, d: 0.57 },
+  { en: "Cast iron on cast iron", he: "יציקה על יציקה", es: "Fundición sobre fundición", s: 1.1, d: 0.15 },
+  { en: "Wood on wood", he: "עץ על עץ", es: "Madera sobre madera", s: 0.5, d: 0.3 },
+  { en: "Steel on wood", he: "פלדה על עץ", es: "Acero sobre madera", s: 0.5, d: 0.4 },
+  { en: "Steel on ice", he: "פלדה על קרח", es: "Acero sobre hielo", s: 0.03, d: 0.02 },
+  { en: "Tyre on asphalt", he: "צמיג על אספלט", es: "Neumático sobre asfalto", s: 0.9, d: 0.8 },
 ];
 export const MAX_MARKS = 6;
 

@@ -76,6 +76,9 @@ function PartIcon({ part }: { part: FluidPart }) {
   return (<svg className="fl" width="44" height="30" viewBox={`${(w - s) / 2} ${(h - s * 0.76) / 2} ${s} ${s * 0.76}`} aria-hidden="true"><FluidSymbol part={part} /></svg>);
 }
 
+/** a short text in the current language */
+const L3 = (lang: string, en: string, he: string, es: string) => (lang === "he" ? he : lang === "es" ? es : en);
+
 /** one editor per tab: see shared/tabs.tsx */
 export function FluidApp({ domain, onHome }: { domain: FluidDomain; onHome?: () => void }) {
   const [lang] = useLang();
@@ -125,8 +128,8 @@ function FluidEditor({ domain, onHome, tab }: { domain: FluidDomain; onHome?: ()
       .filter(([, p]) => isFluidPart(p, domain) && (p.ports.some((x) => x.kind === kind) || groupOf(p) === "electric"))
       .map(([key, p]) => ({ key, p, label: fluidName(p.cls, p.description, lang), g: groupOf(p) }))
       .filter((x) => matches(q, x.label, x.p.cls));
-    const gen = partForKey(NEW_VALVE, domain === "hyd"), genLabel = lang === "he" ? "שסתום כיווני – הגדרה חופשית ⚙" : "Directional valve – configure ⚙";
-    const genC = partForKey(NEW_CYL, domain === "hyd"), genCLabel = lang === "he" ? "בוכנה – הגדרה חופשית ⚙" : "Cylinder – configure ⚙";
+    const gen = partForKey(NEW_VALVE, domain === "hyd"), genLabel = L3(lang, "Directional valve – configure ⚙", "שסתום כיווני – הגדרה חופשית ⚙", "Válvula distribuidora – configurar ⚙");
+    const genC = partForKey(NEW_CYL, domain === "hyd"), genCLabel = L3(lang, "Cylinder – configure ⚙", "בוכנה – הגדרה חופשית ⚙", "Cilindro – configurar ⚙");
     return GROUPS.map((g) => ({
       id: g, title: t.groups[g],
       items: [
@@ -217,7 +220,7 @@ function FluidEditor({ domain, onHome, tab }: { domain: FluidDomain; onHome?: ()
   const finishTube = (b: PortRef) => {
     if (!draft) return;
     if (b.c === draft.a.c && b.p === draft.a.p) { setDraft(null); return; }
-    if (kindOf(b) !== kindOf(draft.a)) { setMsg(lang === "he" ? "אפשר לחבר רק יציאות מאותו סוג" : "Only ports of the same kind can be joined"); return; }
+    if (kindOf(b) !== kindOf(draft.a)) { setMsg(L3(lang, "Only ports of the same kind can be joined", "אפשר לחבר רק יציאות מאותו סוג", "Solo se pueden unir conexiones del mismo tipo")); return; }
     push();
     setTubes((ts) => [...ts, { id: nid("t"), a: draft.a, b, pts: draft.pts }]);
     setDraft(null);
@@ -477,9 +480,9 @@ function FluidEditor({ domain, onHome, tab }: { domain: FluidDomain; onHome?: ()
           <h3>{t.simTitle}</h3>
           <p className="hint">{t.simHint}</p>
           <div className="legend"><div><span style={{ background: "var(--tube)", height: 4 }}></span>{t.legP}</div><div><span style={{ background: "var(--tube-off)" }}></span>{t.legNoP}</div></div>
-          {elRes?.short && <div className="warn" style={{ position: "static", margin: "8px 0" }}>{lang === "he" ? "קצר חשמלי!" : "Short circuit!"}</div>}
+          {elRes?.short && <div className="warn" style={{ position: "static", margin: "8px 0" }}>{L3(lang, "Short circuit!", "קצר חשמלי!", "¡Cortocircuito!")}</div>}
           {comps.some((c) => partOf(c) && ["timer", "counter"].includes(eKind(partOf(c)!).k)) && (<>
-            <div className="grp" style={{ marginTop: 14 }}>{lang === "he" ? "טיימרים ומונים" : "Timers & counters"}</div>
+            <div className="grp" style={{ marginTop: 14 }}>{L3(lang, "Timers & counters", "טיימרים ומונים", "Temporizadores y contadores")}</div>
             {comps.filter((c) => partOf(c) && ["timer", "counter"].includes(eKind(partOf(c)!).k)).map((c) => {
               const k = eKind(partOf(c)!) as any;
               const v = k.k === "timer" ? (elecSt.tOn[k.label] !== undefined ? `${Math.min(k.delay, (now - elecSt.tOn[k.label]) / 1000).toFixed(1)} / ${k.delay} s` : `0 / ${k.delay} s`) : `${elecSt.count[k.label]?.n ?? 0} / ${k.n}`;
@@ -498,8 +501,8 @@ function FluidEditor({ domain, onHome, tab }: { domain: FluidDomain; onHome?: ()
             <div className="about-name">{label(selComp)}</div>
             <p className="about mono" dir="ltr">{p.cls}{p.config ? <><br /><span className="hint">{t.config}: {p.config}</span></> : null}</p>
             <div className="row" style={{ marginBottom: 10 }}><button onClick={rotateSel}>{c0.rotate} ↻</button><button onClick={deleteSel}>{c0.del}</button>
-              {isValve(selComp) && <button className="go" onClick={() => setVdlg(selComp.id)}>⚙ {lang === "he" ? "הגדר שסתום" : "Configure valve"}</button>}
-              {isCyl(selComp) && <button className="go" onClick={() => openCyl(selComp.id)}>⚙ {lang === "he" ? "הגדר בוכנה" : "Configure cylinder"}</button>}</div>
+              {isValve(selComp) && <button className="go" onClick={() => setVdlg(selComp.id)}>⚙ {L3(lang, "Configure valve", "הגדר שסתום", "Configurar válvula")}</button>}
+              {isCyl(selComp) && <button className="go" onClick={() => openCyl(selComp.id)}>⚙ {L3(lang, "Configure cylinder", "הגדר בוכנה", "Configurar cilindro")}</button>}</div>
             <div className="field"><label>{t.ports}</label>
               <div className="hint">{portsOf(selComp).map((q, i) => ({ q, i })).filter(({ q }) => q.kind === fluidKind).map(({ q, i }, n) => <span key={i} className="chip" style={{ marginInlineEnd: 4 }}>{q.label || n + 1}{used.has(selComp.id + ":" + i) ? "" : " · " + t.openPort}</span>)}</div></div>
             {Object.keys(p.props).length > 0 && (<div className="field"><label>{t.props}</label>

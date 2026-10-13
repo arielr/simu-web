@@ -26,6 +26,15 @@ const TX = {
     mechs: { none: "ללא", plunger: "פין לחיצה", roller: "גלגלת", idle: "גלגלת חד-כיוונית →", idle2: "גלגלת חד-כיוונית ←", general: "מנגנון (כללי)", twoway: "מנגנון (דו-כיווני)" } as Record<Mech, string>,
     elpns: { none: "ללא", solenoid: "סולנואיד", pilot: "פיקוד לחץ", solpilot: "סולנואיד עם פיקוד" } as Record<ElPn, string>,
     hint: "תוויות מקשרות את השסתום למעגל: תווית סולנואיד (למשל 1Y1) לסולנואיד חשמלי, ותווית גלגלת (למשל 1S1) לסימון של בוכנה." },
+  es: { title: "Configurar válvula", left: "Accionamiento izquierdo", right: "Accionamiento derecho", body: "Cuerpo de la válvula", name: "Nombre del componente", ways: "Vías",
+    spring: "Retorno por muelle", piloted: "Servopilotada", ext: "Alimentación externa", pneuSpring: "Muelle neumático",
+    manual: "Muscular", mech: "Mecánico", elpn: "Neumático / eléctrico", label: "Etiqueta",
+    initial: "Posición inicial", reversible: "Reversible", dominant: "Señal dominante", dl: "Izquierda", dr: "Derecha",
+    flow: "Caudal nominal normal", mirror: "Simetría", horiz: "Horizontal", vert: "Vertical", ok: "Aceptar", cancel: "Cancelar", none: "—", pos: "Posición",
+    manuals: { none: "Ninguno", general: "Manual general", "general-d": "Manual general, con enclavamiento", button: "Pulsador", "button-d": "Pulsador, con enclavamiento", mushroom: "Pulsador de seta", "mushroom-d": "Pulsador de seta, con enclavamiento", lever: "Palanca", "lever-d": "Palanca, con enclavamiento", detent: "Palanca, con enclavamiento", pedal: "Pedal", "pedal-d": "Pedal, con enclavamiento" } as Record<Manual, string>,
+    mechs: { none: "Ninguno", plunger: "Empujador", roller: "Rodillo", idle: "Rodillo abatible →", idle2: "Rodillo abatible ←", general: "Mecanismo (general)", twoway: "Mecanismo (doble sentido)" } as Record<Mech, string>,
+    elpns: { none: "Ninguno", solenoid: "Bobina", pilot: "Pilotaje neumático", solpilot: "Bobina con pilotaje" } as Record<ElPn, string>,
+    hint: "Las etiquetas unen la válvula al circuito: una etiqueta de bobina (p. ej. 1Y1) a una bobina eléctrica, una de rodillo (p. ej. 1S1) a una marca de un cilindro." },
 };
 type T = typeof TX.en;
 
@@ -133,7 +142,7 @@ export function ValveDialog({ lang, initial, hydraulic, onApply, onClose }: {
               const id = c.boxes[i];
               const enabled = i <= c.boxes.length;
               const opts = [...(i >= 2 ? [""] : []), ...types.map((x) => x.id)];
-              const labels = Object.fromEntries([["", t.none], ...types.map((x) => [x.id, lang === "he" ? x.he : x.en])]) as Record<string, string>;
+              const labels = Object.fromEntries([["", t.none], ...types.map((x) => [x.id, (x as any)[lang] || x.en])]) as Record<string, string>;
               return (<div key={i} className={"slot" + (enabled ? "" : " off")}>
                 <IconSelect big label={`${t.pos} ${i + 1}`} disabled={!enabled} value={id || ""} options={opts} labels={labels} onChange={(k) => setBox(i, k)}
                   icon={(k) => (k ? <BoxIcon ways={c.ways} id={k} /> : null)} />

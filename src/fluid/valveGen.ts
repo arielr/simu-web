@@ -51,34 +51,34 @@ export interface ValveConfig {
 }
 
 /* ---- box types: which ports are joined; every other port is blocked ---- */
-interface BoxType { id: string; en: string; he: string; groups: string[][] }
+interface BoxType { id: string; en: string; he: string; es: string; groups: string[][] }
 const P = (...g: string[][]) => g;
 export const BOX_TYPES: Record<Ways, BoxType[]> = {
   2: [
-    { id: "2open", en: "Open 1→2", he: "פתוח 1→2", groups: P(["1", "2"]) },
-    { id: "2closed", en: "Closed", he: "סגור", groups: P() },
+    { id: "2open", en: "Open 1→2", he: "פתוח 1→2", es: "Abierta 1→2", groups: P(["1", "2"]) },
+    { id: "2closed", en: "Closed", he: "סגור", es: "Cerrada", groups: P() },
   ],
   3: [
-    { id: "3pass", en: "1→2, 3 closed", he: "1→2, 3 סגור", groups: P(["1", "2"]) },
-    { id: "3exh", en: "2→3, 1 closed", he: "2→3, 1 סגור", groups: P(["2", "3"]) },
-    { id: "3closed", en: "All closed", he: "הכל סגור", groups: P() },
-    { id: "3all", en: "1, 2, 3 joined", he: "1, 2, 3 מחוברים", groups: P(["1", "2", "3"]) },
-    { id: "3short", en: "1→3, 2 closed", he: "1→3, 2 סגור", groups: P(["1", "3"]) },
+    { id: "3pass", en: "1→2, 3 closed", he: "1→2, 3 סגור", es: "1→2, 3 cerrada", groups: P(["1", "2"]) },
+    { id: "3exh", en: "2→3, 1 closed", he: "2→3, 1 סגור", es: "2→3, 1 cerrada", groups: P(["2", "3"]) },
+    { id: "3closed", en: "All closed", he: "הכל סגור", es: "Todo cerrado", groups: P() },
+    { id: "3all", en: "1, 2, 3 joined", he: "1, 2, 3 מחוברים", es: "1, 2, 3 unidas", groups: P(["1", "2", "3"]) },
+    { id: "3short", en: "1→3, 2 closed", he: "1→3, 2 סגור", es: "1→3, 2 cerrada", groups: P(["1", "3"]) },
   ],
   4: [
-    { id: "4par", en: "1→4, 2→3", he: "1→4, 2→3", groups: P(["1", "4"], ["2", "3"]) },
-    { id: "4cross", en: "1→2, 4→3", he: "1→2, 4→3", groups: P(["1", "2"], ["4", "3"]) },
-    { id: "4closed", en: "Closed centre", he: "מרכז סגור", groups: P() },
-    { id: "4open", en: "Open centre", he: "מרכז פתוח", groups: P(["1", "2", "3", "4"]) },
-    { id: "4tandem", en: "Tandem 1→3", he: "טנדם 1→3", groups: P(["1", "3"]) },
-    { id: "4float", en: "Float 2,4→3", he: "צף 2,4→3", groups: P(["2", "3", "4"]) },
+    { id: "4par", en: "1→4, 2→3", he: "1→4, 2→3", es: "1→4, 2→3", groups: P(["1", "4"], ["2", "3"]) },
+    { id: "4cross", en: "1→2, 4→3", he: "1→2, 4→3", es: "1→2, 4→3", groups: P(["1", "2"], ["4", "3"]) },
+    { id: "4closed", en: "Closed centre", he: "מרכז סגור", es: "Centro cerrado", groups: P() },
+    { id: "4open", en: "Open centre", he: "מרכז פתוח", es: "Centro abierto", groups: P(["1", "2", "3", "4"]) },
+    { id: "4tandem", en: "Tandem 1→3", he: "טנדם 1→3", es: "Tándem 1→3", groups: P(["1", "3"]) },
+    { id: "4float", en: "Float 2,4→3", he: "צף 2,4→3", es: "Flotante 2,4→3", groups: P(["2", "3", "4"]) },
   ],
   5: [
-    { id: "5par", en: "1→2, 4→5", he: "1→2, 4→5", groups: P(["1", "2"], ["4", "5"]) },
-    { id: "5cross", en: "1→4, 2→3", he: "1→4, 2→3", groups: P(["1", "4"], ["2", "3"]) },
-    { id: "5closed", en: "Closed centre", he: "מרכז סגור", groups: P() },
-    { id: "5exh", en: "Exhaust centre 2→3, 4→5", he: "מרכז פליטה", groups: P(["2", "3"], ["4", "5"]) },
-    { id: "5press", en: "Pressure centre 1→2, 1→4", he: "מרכז לחץ", groups: P(["1", "2", "4"]) },
+    { id: "5par", en: "1→2, 4→5", he: "1→2, 4→5", es: "1→2, 4→5", groups: P(["1", "2"], ["4", "5"]) },
+    { id: "5cross", en: "1→4, 2→3", he: "1→4, 2→3", es: "1→4, 2→3", groups: P(["1", "4"], ["2", "3"]) },
+    { id: "5closed", en: "Closed centre", he: "מרכז סגור", es: "Centro cerrado", groups: P() },
+    { id: "5exh", en: "Exhaust centre 2→3, 4→5", he: "מרכז פליטה", es: "Centro a escape 2→3, 4→5", groups: P(["2", "3"], ["4", "5"]) },
+    { id: "5press", en: "Pressure centre 1→2, 1→4", he: "מרכז לחץ", es: "Centro a presión 1→2, 1→4", groups: P(["1", "2", "4"]) },
   ],
 };
 /* FluidSIM position codes seen in files -> our box types */

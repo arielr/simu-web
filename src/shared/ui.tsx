@@ -67,7 +67,7 @@ export function ExamplesMenu({ lang, items, onPick }: { lang: Lang; items: [stri
 
 export function LangSelect({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
   return (<select aria-label={COMMON[lang].lang} value={lang} onChange={(e) => setLang(e.target.value as Lang)}>
-    <option value="en">English</option><option value="he">עברית</option>
+    <option value="en">English</option><option value="es">Español</option><option value="he">עברית</option>
   </select>);
 }
 

@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { DEFS } from "../model/parts";
+import { DESC_ES, ACT_DESC_ES, FORM_DESC_ES } from "./descriptions.es";
 
 /* short explanations shown in the side panel: [what it is, what it does in the simulation] */
 export const DESC={
@@ -118,6 +119,7 @@ export const ACT_DESC={
   th:['מגע של ממסר תרמי (95-96 NC / 97-98 NO). פותח את מעגל הפיקוד כשהמנוע צורך זרם גבוה מדי.','לחיצה מדמה ניתוק.']}};
 export const FORM_DESC={en:{no:'NO: normally open, closes when operated.',nc:'NC: normally closed, opens when operated.',pair:'NC + NO: two contacts operated together.',co:'Changeover: one common terminal that moves from the NC side to the NO side.'},
  he:{no:'NO: פתוח במצב רגיל, נסגר כשמפעילים.',nc:'NC: סגור במצב רגיל, נפתח כשמפעילים.',pair:'NC + NO: שני מגעים שפועלים יחד.',co:'מחליף: הדק משותף שעובר מצד ה-NC לצד ה-NO.'}};
+DESC.es=DESC_ES;ACT_DESC.es=ACT_DESC_ES;FORM_DESC.es=FORM_DESC_ES;
 export function pdesc(lang,type){const d=DEFS[type];if(!d)return null;
   if(d.act){const a=ACT_DESC[lang][d.act];return [a[0]+' '+FORM_DESC[lang][d.form],a[1]];}
   return DESC[lang][type]||(d.fam&&DESC[lang][d.fam])||null;}

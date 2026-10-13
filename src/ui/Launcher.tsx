@@ -15,6 +15,9 @@ const TXT = {
   he: { tag: "עורכי מעגלים וסימולטורים בדפדפן", open: "פתח",
     desc: { electrical: "מעגלי פיקוד: מגענים, לחצנים, טיימרים, מנועים.", pneumatic: "בוכנות, שסתומי כיוון, אספקת אוויר וטיפול בו.", hydraulic: "משאבות, בוכנות, מנועים, שסתומי לחץ וספיקה." },
     fmt: { electrical: "CADe SIMU .cad", pneumatic: "FluidSIM P .ct", hydraulic: "FluidSIM H .ct" } },
+  es: { tag: "Editores y simuladores de circuitos en el navegador", open: "Abrir",
+    desc: { electrical: "Circuitos de mando: contactores, pulsadores, temporizadores, motores.", pneumatic: "Cilindros, válvulas distribuidoras, suministro y tratamiento del aire.", hydraulic: "Bombas, cilindros, motores, válvulas de presión y de caudal." },
+    fmt: { electrical: "CADe SIMU .cad", pneumatic: "FluidSIM P .ct", hydraulic: "FluidSIM H .ct" } },
 };
 
 /** small original drawings, kept free of the parts catalogs so this page stays light */

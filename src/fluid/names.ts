@@ -1,4 +1,5 @@
 /** English / Hebrew names for FluidSIM parts. Keys: the German library description, or the class name. */
+import { ES_NAMES } from "./names.es";
 type N = [string, string];
 const BY_DESC: Record<string, N> = {
   "2/2-Wege-Stößelventil": ["2/2-way plunger valve", "שסתום 2/2 עם בוכנה"],
@@ -143,6 +144,6 @@ const BY_CLASS: Record<string, N> = {
 };
 export function fluidName(cls: string, desc: string, lang: string): string {
   const n = BY_CLASS[cls] || BY_DESC[desc];
-  if (n) return lang === "he" ? n[1] : n[0];
+  if (n) return lang === "he" ? n[1] : lang === "es" ? ES_NAMES[n[0]] || n[0] : n[0];
   return desc || cls;
 }
