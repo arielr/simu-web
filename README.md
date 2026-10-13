@@ -121,8 +121,9 @@ automatically without a browser; the UI layer only draws the state.
 ## Tabs: several drawings at once
 
 Each program has a row of tabs under its top bar (`src/shared/tabs.tsx`): **+** opens an empty
-drawing, *Open in new tab…* opens a file (`.cad`, `.ct`, `.json`; pictures can be chosen with a
-`.cad`) in a new tab, × or a middle click closes one. Every tab is a complete editor kept in memory,
+drawing, *Open in new tab…* opens files (`.cad`, `.ct`, `.json`; pictures can be chosen with a
+`.cad`), one tab per drawing; files dropped on the page open the same way, and choosing several
+files in *File* opens the first in the current tab and the others in new tabs; × or a middle click closes one. Every tab is a complete editor kept in memory,
 so its undo history, zoom and simulation stay as they were when you switch; only the visible tab
 receives keyboard shortcuts and copy/paste, so parts can be copied from one tab and pasted into
 another. Each tab's drawing is saved in the browser under its own key and the tabs come back after

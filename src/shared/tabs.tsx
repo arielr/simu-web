@@ -21,11 +21,14 @@ export interface TabProps {
   files: File[] | null;
   /** the editor reports its drawing name, shown on the tab */
   onName: (name: string) => void;
+  /** open these files in new tabs (one per drawing) */
+  openInTabs: (files: File[]) => void;
   /** the strip itself, placed by the editor under its top bar */
   tabs: ReactNode;
 }
 
 const MAIN = "main";
+const isPicture = (f: File) => /\.(bmp|png|jpe?g|gif|webp)$/i.test(f.name);
 const keyOf = (store: string, id: string) => (id === MAIN ? store : `${store}:${id}`);
 
 function readTabs(store: string): { tabs: DocTab[]; active: string } {
@@ -46,11 +49,24 @@ export function DocTabs({ store, lang, untitled, render }: {
   const t = COMMON[lang];
   useEffect(() => { try { localStorage.setItem(store + ":tabs", JSON.stringify(st)); } catch { /* storage full or blocked */ } }, [store, st]);
 
+  /** a new empty tab, or one tab per drawing file; pictures among the files go with every drawing */
   const add = (files: File[] | null = null) => {
-    const id = nid("t");
-    fresh.current[id] = { blank: true, files };
-    setSt((s) => ({ tabs: [...s.tabs, { id, name: files?.length ? files.find((f) => !/\.(bmp|png|jpe?g|gif|webp)$/i.test(f.name))?.name.replace(/\.[^.]*$/, "") || "" : "" }], active: id }));
+    const pics = (files || []).filter(isPicture), docs = (files || []).filter((f) => !isPicture(f));
+    const groups = files?.length ? (docs.length ? docs.map((d) => [d, ...pics]) : [pics]) : [null];
+    const made = groups.map((g) => {
+      const id = nid("t");
+      fresh.current[id] = { blank: true, files: g };
+      return { id, name: g?.find((f) => !isPicture(f))?.name.replace(/\.[^.]*$/, "") || "" };
+    });
+    setSt((s) => ({ tabs: [...s.tabs, ...made], active: made[made.length - 1].id }));
   };
+  // files dropped anywhere on the page open in new tabs
+  useEffect(() => {
+    const over = (e: DragEvent) => { if (e.dataTransfer?.types.includes("Files")) e.preventDefault(); };
+    const drop = (e: DragEvent) => { const fs = [...(e.dataTransfer?.files || [])]; if (!fs.length) return; e.preventDefault(); add(fs); };
+    window.addEventListener("dragover", over); window.addEventListener("drop", drop);
+    return () => { window.removeEventListener("dragover", over); window.removeEventListener("drop", drop); };
+  }, []);
   const close = (id: string) => {
     if (!confirm(t.closeTab)) return;
     try { localStorage.removeItem(keyOf(store, id)); } catch { /* ignore */ }
@@ -68,7 +84,7 @@ export function DocTabs({ store, lang, untitled, render }: {
         <div key={tab.id} role="tab" aria-selected={tab.id === st.active} className={"doctab" + (tab.id === st.active ? " on" : "")}
           onClick={() => setSt((s) => ({ ...s, active: tab.id }))} onAuxClick={(e) => { if (e.button === 1) close(tab.id); }} title={tab.name || untitled}>
           <span className="dt-name" dir="auto">{tab.name || untitled}</span>
-          <button className="dt-x" aria-label={t.closeTab} title={t.closeTab} onClick={(e) => { e.stopPropagation(); close(tab.id); }}>×</button>
+          <button className="dt-x" aria-label={t.closeTabBtn} title={t.closeTabBtn} onClick={(e) => { e.stopPropagation(); close(tab.id); }}>×</button>
         </div>))}
       <button className="dt-add" onClick={() => add()} title={t.newTab} aria-label={t.newTab}>+</button>
       <button className="dt-add" onClick={() => fileRef.current?.click()} title={t.openInTab}>{t.openInTab}</button>
@@ -79,7 +95,7 @@ export function DocTabs({ store, lang, untitled, render }: {
   return (<>{st.tabs.map((tab) => {
     const on = tab.id === st.active, f = fresh.current[tab.id];
     return (<div key={tab.id} className="doctab-pane" style={on ? undefined : { display: "none" }}>
-      {render(tab, { storeKey: keyOf(store, tab.id), active: on, blank: !!f?.blank, files: f?.files || null, onName: (n) => setName(tab.id, n), tabs: on ? strip : null })}
+      {render(tab, { storeKey: keyOf(store, tab.id), active: on, blank: !!f?.blank, files: f?.files || null, onName: (n) => setName(tab.id, n), openInTabs: add, tabs: on ? strip : null })}
     </div>);
   })}</>);
 }

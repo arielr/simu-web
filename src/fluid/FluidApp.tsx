@@ -526,7 +526,7 @@ function FluidEditor({ domain, onHome, tab }: { domain: FluidDomain; onHome?: ()
           <button onClick={() => jsonRef.current?.click()}>{t.openJson}</button>
           {saver && <button onClick={saveJson}>{t.saveJson}</button>}
         </div>
-        <input ref={fileRef} type="file" accept=".ct" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) openCt(f); e.target.value = ""; }} />
+        <input ref={fileRef} type="file" accept=".ct" multiple hidden onChange={(e) => { const fs = [...(e.target.files || [])]; e.target.value = ""; if (fs[0]) openCt(fs[0]); if (fs.length > 1) tab.openInTabs(fs.slice(1)); }} />
         <input ref={jsonRef} type="file" accept=".json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) openJson(f); e.target.value = ""; }} />
     </Dialog>)} />);
 }

@@ -6,12 +6,12 @@ export const COMMON = {
   en: { dir: "ltr" as const, home: "All programs", undo: "Undo", newDoc: "New", file: "File", examples: "Examples", lang: "Language",
     close: "Close", select: "Select", rotate: "Rotate", del: "Delete", search: "Search parts…", zoomIn: "Zoom in", zoomOut: "Zoom out", zoomReset: "Reset zoom",
     name: "Circuit name", autosave: "Saved automatically in this browser",
-    newTab: "New tab", closeTab: "Close this tab? Its drawing is removed from this browser (save the file first if you need it).", openInTab: "Open in new tab…", untitled: "Untitled",
+    newTab: "New tab", closeTabBtn: "Close tab", closeTab: "Close this tab? Its drawing is removed from this browser (save the file first if you need it).", openInTab: "Open in new tab…", untitled: "Untitled",
     programs: { electrical: "Electrical", pneumatic: "Pneumatics", hydraulic: "Hydraulics" } },
   he: { dir: "rtl" as const, home: "כל התוכנות", undo: "בטל", newDoc: "חדש", file: "קובץ", examples: "דוגמאות", lang: "שפה",
     close: "סגור", select: "בחירה", rotate: "סובב", del: "מחק", search: "חיפוש רכיבים…", zoomIn: "הגדל", zoomOut: "הקטן", zoomReset: "איפוס זום",
     name: "שם המעגל", autosave: "נשמר אוטומטית בדפדפן הזה",
-    newTab: "לשונית חדשה", closeTab: "לסגור את הלשונית? השרטוט שלה יימחק מהדפדפן (שמור קובץ קודם אם צריך).", openInTab: "פתח בלשונית חדשה…", untitled: "ללא שם",
+    newTab: "לשונית חדשה", closeTabBtn: "סגור לשונית", closeTab: "לסגור את הלשונית? השרטוט שלה יימחק מהדפדפן (שמור קובץ קודם אם צריך).", openInTab: "פתח בלשונית חדשה…", untitled: "ללא שם",
     programs: { electrical: "חשמל", pneumatic: "פנאומטיקה", hydraulic: "הידראוליקה" } },
 };
 export type Common = (typeof COMMON)["en"];

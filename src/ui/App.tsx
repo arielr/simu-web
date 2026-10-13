@@ -262,7 +262,9 @@ function Editor({onHome,tab}){
   /* pictures named in the drawing (code 9) can be chosen together with the .cad file, or later from the inspector */
   const addImages=async fs=>{const got=[];for(const f of fs){try{got.push(await addImage(f));}catch(e){}}
     if(got.length){setImgTick(n=>n+1);setMsg(t.imgLoaded(got.join(', ')));}return got;};
-  const openFiles=async all=>{const imgs=all.filter(isImageFile),f=all.find(x=>!isImageFile(x));
+  /* the first drawing opens here, any further ones in new tabs (with the same pictures) */
+  const openFiles=async all=>{const imgs=all.filter(isImageFile),docs=all.filter(x=>!isImageFile(x)),f=docs[0];
+    if(docs.length>1)tab.openInTabs([...docs.slice(1),...imgs]);
     if(imgs.length)await addImages(imgs);if(!f)return;const r=new FileReader();
     r.onload=()=>importText(r.result,f.name);r.readAsText(f,'windows-1252');};
   const onFile=e=>{const all=[...e.target.files];e.target.value='';openFiles(all);};
