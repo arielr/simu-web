@@ -1,4 +1,5 @@
 // @ts-nocheck
+import { EXTRA_CAD } from "../model/extras";
 
 /* ---------- CADe SIMU text format (.cad) ----------
    File = "CADe_SIMU" + records + footer ("$$$..." to end).
@@ -116,6 +117,7 @@ export const CAD_PARTS={
 export const CAD_WIRE={4000:'ph',4009:'n',4010:'pe',4018:'pos',4019:'neg'};
 export const CAD_WIRE_CODE={ph:4000,n:4009,pe:4010,pos:4018,neg:4019};
 export const CAD_JUNCTION=4001,CAD_HEADER=20000;
+Object.assign(CAD_PARTS,EXTRA_CAD); // more parts (src/model/extras.ts)
 export const TYPE_TO_CAD={};Object.entries(CAD_PARTS).forEach(([code,p])=>{if(!(p.type in TYPE_TO_CAD))TYPE_TO_CAD[p.type]=+code;});
 export const CAD_DEFAULT_HEADER='*1*20000#XXX#########*0*0*0*0*0*0*0*0*42*486*0*0*0*0*0*0*0*0*0*0*0*0*0#';
 export const CAD_DEFAULT_FOOTER='$$$*1*1*1*2*6*0*0*0*0*  0*  0&&&**          **          **          **          **                        **                        **28-Sep-202**1         **1         *CADe_S1.4            *0*1*1*0*0*0*0*0*0*0*0*0*0*0***$$$&&&';

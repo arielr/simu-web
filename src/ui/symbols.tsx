@@ -1,4 +1,6 @@
 // @ts-nocheck
+import { EXTRA_DEFS } from "../model/extras";
+import { ExtraSym } from "./extraSyms";
 import { PLC_MODELS, plcLayout, psuLayout } from "../model/plc";
 import m221 from "../assets/plc/m221.jpg";
 import m241 from "../assets/plc/m241.jpg";
@@ -76,6 +78,7 @@ export function Glyph({act,gx,s}){
     case 'lim':return (<circle cx={gx-3} cy="30" r="4.5" fill="var(--sheet)" stroke="currentColor" strokeWidth="1.8"/>);
     case 'th':return (<polyline points={`${gx+4},24 ${gx-2},24 ${gx-2},30 ${gx-8},30 ${gx-8},36 ${gx-14},36`} fill="none" stroke={s.tripped?'var(--live)':'currentColor'} strokeWidth="2"/>);
     case 'ind':case 'cap':case 'mag':case 'prs':case 'vac':case 'tst':return (<><rect x={gx-10} y="22" width="14" height="16" fill={s.act?'color-mix(in srgb,var(--accent) 35%,var(--sheet))':'var(--sheet)'} stroke="currentColor" strokeWidth="1.6"/><text x={gx-3} y="34" textAnchor="middle" fontSize="10" fontWeight="600" fill="currentColor">{ACTS[act].sensor}</text></>);
+    case 'bar':return (<><rect x={gx-10} y="22" width="12" height="16" fill={s.act?'color-mix(in srgb,var(--accent) 35%,var(--sheet))':'var(--sheet)'} stroke="currentColor" strokeWidth="1.6"/><path d={`M ${gx-24} 26 l 10 0 m -3 -3 l 3 3 l -3 3 M ${gx-24} 34 l 10 0 m -3 -3 l 3 3 l -3 3`} fill="none" stroke="currentColor" strokeWidth="1.3"/></>);
     case 'ton':return (<><path d={`M ${gx} 23 A 7 7 0 0 1 ${gx} 37`} fill="none" stroke="currentColor" strokeWidth="2"/><Ln x1={gx} y1={23} x2={gx} y2={37}/></>);
     case 'toff':return (<><path d={`M ${gx} 23 A 7 7 0 0 0 ${gx} 37`} fill="none" stroke="currentColor" strokeWidth="2"/><Ln x1={gx} y1={23} x2={gx} y2={37}/></>);
     case 'tboth':return (<path d={`M ${gx} 23 A 7 7 0 0 1 ${gx} 37 A 7 7 0 0 1 ${gx} 23`} fill="none" stroke="currentColor" strokeWidth="2"/>);
@@ -117,7 +120,7 @@ function PlcSym({type,s}){const lay=plcLayout(type),st=s.plc;
   return (<PicSym pins={lay.pins} pic={lay.pic} s={s} lit={lit}/>);}
 function PsuSym({s}){const P=psuLayout();return (<PicSym pins={P.pins} pic={P.pic} s={s} lit={null}/>);}
 export function Sym({type,s}){
-  s=s||{};if(DEFS[type]&&DEFS[type].kind==='plc')return (<PlcSym type={type} s={s}/>);if(type==='psu24')return (<PsuSym s={s}/>);if(DEFS[type]&&DEFS[type].fam&&DEFS[type].n)return (<Poles d={DEFS[type]} s={s}/>);
+  s=s||{};{const ex=ExtraSym({type,s});if(ex)return ex;}if(DEFS[type]&&DEFS[type].kind==='plc')return (<PlcSym type={type} s={s}/>);if(type==='psu24')return (<PsuSym s={s}/>);if(DEFS[type]&&DEFS[type].fam&&DEFS[type].n)return (<Poles d={DEFS[type]} s={s}/>);
   if(DEFS[type]&&DEFS[type].form)return (<Contact d={DEFS[type]} s={s}/>);const cs=s.cs||[];const c0=cs[0]||'currentColor',c1=cs[1]||'currentColor';
   const leads=(t,b)=>(<><Ln x1={0} y1={0} x2={0} y2={t} c={c0}/><Ln x1={0} y1={b} x2={0} y2={60} c={c1}/></>);
   const contact=(isNC,cl)=>{
@@ -185,6 +188,7 @@ export function Sym({type,s}){
 }
 export const ICON_VB={battery:'-8 -4 48 54',aux_co:'-30 -2 64 64',fsd3:'-34 -2 108 64',interlock:'-6 -22 72 30',L:'-14 -24 28 32',N:'-14 -24 28 32',supply:'-10 -26 84 36',supply3:'-10 -26 84 36',supply3n:'-10 -26 144 36',motor3:'-20 -4 124 128',km3:'-30 -2 104 64',mcb3:'-34 -2 108 64',fu3:'-10 -2 84 64',qs3:'-30 -2 104 64',breaker2:'-34 -4 74 98',switch2:'-34 -4 74 113',motor1:'-20 -4 124 128',motor6:'-20 -4 124 132'};
 Object.keys(PLC_MODELS).forEach(k=>{const p=plcLayout(k).pic;ICON_VB[k]=`${p.x-4} ${p.y-4} ${p.w+8} ${p.h+8}`;});{const p=psuLayout().pic;ICON_VB.psu24=`${p.x-4} ${p.y-4} ${p.w+8} ${p.h+8}`;}
+Object.keys(EXTRA_DEFS).forEach(k=>{const b=EXTRA_DEFS[k].box;ICON_VB[k]=`${b.x-2} ${b.y-2} ${b.width+4} ${b.height+4}`;});
 export function Icon({type}){
   return (<svg width="26" height="30" viewBox={ICON_VB[type]||'-30 -2 48 64'} aria-hidden="true"><Sym type={type} s={{tag:'KM1',tag2:'KM2',act:false,closed:NC_TYPES.includes(type)||['breaker2','switch2'].includes(type)||DEFS[type].fam==='fu'||DEFS[type].toggle==='off',color:'amber'}}/></svg>);}
 

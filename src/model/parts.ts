@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { PLC_MODELS, plcLayout, plcCom, psuLayout } from "./plc";
+import { EXTRA_DEFS } from "./extras";
 
 
 export const G=15, W=150, H=110;
@@ -49,7 +50,8 @@ export const DEFS={
 export const ACTS={aux:{group:'relay',link:'coil'},ton:{group:'timer',link:'tcoil',timer:1},toff:{group:'timer',link:'tcoil',timer:1},tboth:{group:'timer',link:'tcoil',timer:1},
   pb:{group:'ctrl',prefix:'S'},pbm:{group:'ctrl',prefix:'S',latch:1},
   ind:{group:'sensor',prefix:'B',latch:1,sensor:'I'},cap:{group:'sensor',prefix:'B',latch:1,sensor:'C'},mag:{group:'sensor',prefix:'B',latch:1,sensor:'M'},
-  prs:{group:'sensor',prefix:'B',latch:1,sensor:'P'},vac:{group:'sensor',prefix:'B',latch:1,sensor:'V'},tst:{group:'sensor',prefix:'B',latch:1,sensor:'θ'},sel:{group:'ctrl',prefix:'S',latch:1},lim:{group:'ctrl',prefix:'S',latch:1},th:{group:'prot',prefix:'F'}};
+  prs:{group:'sensor',prefix:'B',latch:1,sensor:'P'},vac:{group:'sensor',prefix:'B',latch:1,sensor:'V'},tst:{group:'sensor',prefix:'B',latch:1,sensor:'θ'},sel:{group:'ctrl',prefix:'S',latch:1},lim:{group:'ctrl',prefix:'S',latch:1},th:{group:'prot',prefix:'F'},
+  bar:{group:'sensor',prefix:'B',latch:1,sensor:'⇉',beam:1}};
 export const FORMS={no:{pins:TWO,paths:[[0,1,'no']]},nc:{pins:TWO,paths:[[0,1,'nc']]},
   pair:{pins:[[0,0],[3,0],[0,4],[3,4]],paths:[[0,2,'nc'],[1,3,'no']],box:{x:-40,y:-4,width:100,height:68},lab:[54,34]},
   co:{pins:[[0,0],[0,4],[2,4]],paths:[[0,1,'nc'],[0,2,'no']],box:{x:-40,y:-4,width:84,height:68},lab:[38,34]}};
@@ -65,8 +67,9 @@ function plcDef(type){const lay=plcLayout(type),m=PLC_MODELS[type];
     pwr:m.power==='ac'?[lay.L,lay.N]:[lay.dcp,lay.dcm],condSrc:lay.supP>=0?{[lay.supP]:'P',[lay.supM]:'M'}:null,
     box:{x:lay.pic.x-6,y:lay.pic.y-6,width:lay.pic.w+12,height:lay.pic.h+12},lab:[lay.pic.x,lay.pic.y-10]};}
 Object.keys(PLC_MODELS).forEach(k=>{DEFS[k]=plcDef(k);});
+Object.assign(DEFS,EXTRA_DEFS);
 {const P=psuLayout(),pc=P.pic;DEFS.psu24={group:'plc',kind:'psu',prefix:'G',pins:P.pins.map(p=>[p.x,p.y]),plabels:P.pins.map(p=>p.label),pwr:[0,1],condSrc:{2:'P',3:'P',4:'M',5:'M'},box:{x:pc.x-6,y:pc.y-6,width:pc.w+12,height:pc.h+12},lab:[pc.x,pc.y-10]};}
-export const SHOW_CONTACTS=new Set(['ind_no','cap_no','prs_no','tst_no','no','nc','aux_co','tno','tnc','toff_no','toff_nc','pb_no','pb_nc','pbm_nc','sel_no','lim_no','lim_nc','thermal']);
+export const SHOW_CONTACTS=new Set(['bar_no','bar_nc','ind_no','cap_no','prs_no','tst_no','no','nc','aux_co','tno','tnc','toff_no','toff_nc','pb_no','pb_nc','pbm_nc','sel_no','lim_no','lim_nc','thermal']);
 /* multi-pole families: top pins 1,3,5,7 at 2-grid spacing, bottom pins 2,4,6,8 four steps below */
 export const FAMS={ovl:{group:'power',prefix:'F',trip:1},mpcb:{group:'power',prefix:'Q',toggle:'off'},rcd:{group:'power',prefix:'F',toggle:'off'},km:{group:'power',prefix:'KM',link:'coil'},fu:{group:'power',prefix:'F'},fsd:{group:'power',prefix:'F',toggle:'off'},mcb:{group:'power',prefix:'Q',toggle:'off'},qs:{group:'power',prefix:'S',toggle:'sw'}};
 /* bottom row depth in grid steps, as CADe SIMU draws them: RCDs 18 units, motor breakers 21 units, the rest 12 */

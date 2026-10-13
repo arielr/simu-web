@@ -129,6 +129,19 @@ receives keyboard shortcuts and copy/paste, so parts can be copied from one tab 
 another. Each tab's drawing is saved in the browser under its own key and the tabs come back after
 a reload.
 
+## Electrical editor: more CADe SIMU parts
+
+`src/model/extras.ts` (behaviour, CADe SIMU codes) and `src/ui/extraSyms.tsx` (drawings) add: selector
+switches I-0-II / I-II-III and crossover switch (click steps the position); solid-state relays and
+contactor, relays with their own NO or changeover contact; impulse (step) relay, bistable relay,
+flasher, pulse generator, time switch and pulse counter, which drive the contacts with the same tag;
+phase loss / sequence / neutral relays; Dahlander (two speeds), wound-rotor, single-phase (4
+terminals), three-phase-on-single-phase and DC motors, motor brake; power supplies, rectifier and
+transformers (an isolated secondary has its own potential); light barrier emitter and receivers;
+logic gates AND OR NAND NOR XOR NOT, SR memory and logic timers (an input is 1 at +, the output
+gives + while it is 1). Their terminal names come from CADe SIMU's records; terminal positions are
+not yet checked against wired CADe SIMU files.
+
 ## Electrical editor: PLCs
 
 `src/model/plc.ts`: Schneider M221 (TM221C16R) and M241 (TM241CE40U), Siemens S7-200 CPU 226 and

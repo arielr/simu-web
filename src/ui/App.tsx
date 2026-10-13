@@ -16,6 +16,7 @@ import { actuated, closed, solve } from "../sim/solve";
 import { About, Icon, PartPicture, Sym } from "./symbols";
 import { rawSym, RAW_DRAWN } from "./rawSyms";
 import { parseProgram, plcAddrs } from "../model/plc";
+import { TIMED } from "../model/extras";
 
 export const STORE='simu-web-v6';
 export const initLang=readLang;
@@ -78,7 +79,7 @@ function Editor({onHome,tab}){
   const pt=e=>{const r=svgRef.current.getBoundingClientRect();const x=(e.clientX-r.left)/zoom,y=(e.clientY-r.top)/zoom;
     return {x,y,g:[Math.max(0,Math.min(W,Math.round(x/G))),Math.max(0,Math.min(H,Math.round(y/G)))]};};
   const nextTag=p=>{let m=0;comps.forEach(c=>{const r=new RegExp('^'+p+'(\\d+)$').exec(c.tag||'');if(r)m=Math.max(m,+r[1]);});return p+(m+1);};
-  const coilTags=ty=>[...new Set(comps.filter(c=>c.type===ty).map(c=>c.tag))];
+  const coilTags=ty=>[...new Set(comps.filter(c=>c.type===ty||(ty==='coil'&&(DEFS[c.type].drive||DEFS[c.type].kind==='mon'))).map(c=>c.tag))];
   const tcDelay=tag=>{const tc=comps.find(x=>/^tcoil/.test(x.type)&&x.tag===tag)||comps.find(x=>DEFS[x.type].timer&&x.tag===tag&&x.delay);return +(tc&&tc.delay)||3;};
 
   const onDown=e=>{
@@ -90,6 +91,7 @@ function Editor({onHome,tab}){
       if(da.act==='pb')setInp(i=>({...i,press:{...i.press,[c.id]:true}}));
       if(da.act==='th')setInp(i=>({...i,trip:{...i.trip,[c.id]:!i.trip[c.id]}}));
       if(da.latch)setInp(i=>({...i,sw:{...i.sw,[c.id]:!i.sw[c.id]}}));
+      if(da.multi)setInp(i=>({...i,sw:{...i.sw,[c.id]:((+i.sw[c.id]|0)+1)%da.multi}}));
       const tg=da.toggle;if(tg)setInp(i=>({...i,[tg]:{...i[tg],[c.id]:!i[tg][c.id]}}));
       if(da.act==='aux')setMsg(t.follows(c.tag));
       if(da.timer)setMsg(t.timerKind[da.act](c.tag,tcDelay(c.tag)));
@@ -336,7 +338,9 @@ function Editor({onHome,tab}){
             if(c.type==='raw'){const n=c.cad.nums,xi=n.length-15;if(RAW_NAMES[c.cad.code]){s.name=RAW_NAMES[c.cad.code];s.cat=RAW_CAT[c.cad.code];s.terms=rawTerminals(c.cad.text);const bw=Math.max(n[xi+6],12),bh=Math.max(n[xi+7],12);s.big=c.cad.code>=10204&&c.cad.code<=10208?[-30,-8,Math.max(bw*5,90),bh*5]:[n[xi+4]*5,n[xi+5]*5,Math.max(bw*5,96),Math.max(bh*5,60)];}
               else if(RAW_DRAWN.has(c.cad.code)){const rs=rawSym(c.cad,(n[xi]-c.x*3)*5,(n[xi+1]-c.y*3)*5);if(rs){s.custom=c.cad.code===9?<g/>:rs.node;s.hit=rs.box;}}
               else if(n[xi+2]||n[xi+3])s.line=[Math.round(n[xi+2]/3)*G-c.x*G,Math.round(n[xi+3]/3)*G-c.y*G];}
-            if(res&&d.kind==='plc')s.plc=res.plc&&res.plc[c.id];if(res&&d.kind==='psu')s.on=!!res.coils['pwr:'+c.id];
+            if(res&&d.kind==='plc')s.plc=res.plc&&res.plc[c.id];if(res&&(d.kind==='psu'||d.kind==='psu2'))s.on=!!res.coils['pwr:'+c.id];
+            s.pos=inp.sw[c.id];s.delay=c.delay;s.preset=c.delay;
+            if(res){if(d.kind==='mon')s.on=!!res.loads[c.id];if(d.logic)s.on=!!res.coils['lg:'+c.id];s.speed=res.speed[c.id];s.cnt=res.cnt[c.id];if(d.drive==='timesw')s.act=!!inp.sw[c.id];}
             if(res){if(d.kind==='load'){s.on=res.loads[c.id];s.dir=res.dir[c.id];s.yd=res.yd&&res.yd[c.id];if(/^tcoil/.test(c.type)){const m=res.tm[c.tag];s.done=!!(m&&(c.type==='tcoil'?m.ton:c.type==='tcoil_off'?m.toff:m.tboth));}}
               else if(d.form)s.act=actuated(c,inp,res.coils,res.tm);
               else if(d.kind==='contact')s.closed=closed(c,inp,res.coils);
@@ -344,7 +348,7 @@ function Editor({onHome,tab}){
             else{s.closed=NC_TYPES.includes(c.type)||d.fam==='fu'||d.toggle==='off';}
             const isSel=isSelC(c.id);
             const hit=s.hit?{x:s.hit[0],y:s.hit[1],width:s.hit[2],height:s.hit[3]}:s.big?{x:s.big[0],y:s.big[1],width:s.big[2],height:s.big[3]}:s.line?{x:Math.min(0,s.line[0])-4,y:Math.min(0,s.line[1])-4,width:Math.abs(s.line[0])+8,height:Math.abs(s.line[1])+8}:d.box||BOX2;
-            const interactive=mode==='sim'&&(['pb','th'].includes(d.act)||!!d.latch||!!d.toggle||!!d.trip);const linked=mode==='sim'&&!!d.link;
+            const interactive=mode==='sim'&&(['pb','th'].includes(d.act)||!!d.latch||!!d.toggle||!!d.trip||!!d.multi);const linked=mode==='sim'&&!!d.link;
             return (<g key={c.id} data-cid={c.id} transform={`translate(${c.x*G},${c.y*G})${c.rot?` rotate(${90*c.rot})`:''}`} style={{cursor:interactive?'pointer':linked?'help':mode==='edit'&&tool==='select'?'move':null}}>
               <rect {...hit} fill={interactive?'color-mix(in srgb,var(--accent) 10%,transparent)':'transparent'} stroke={isSel?'var(--sel)':'none'} strokeDasharray="4 3" rx="4"
                 {...(s.noPic||(c.type==='raw'&&c.cad.code===9)?{pointerEvents:'stroke',strokeWidth:10}:{})}/>
@@ -391,6 +395,7 @@ function Editor({onHome,tab}){
           {DEFS[selC.type].fam&&VARIANTS[DEFS[selC.type].fam]&&(<div className="field"><label htmlFor="np">{t.poles}</label><select id="np" value={selC.type} onChange={e=>{snap();upd(selC.id,{type:e.target.value});}}>{VARIANTS[DEFS[selC.type].fam].map(([k,l])=>(<option key={k} value={k}>{l}</option>))}</select></div>)}
           {DEFS[selC.type].act&&(<div className="field"><label htmlFor="form">{t.formLbl}</label><select id="form" value={selC.type} onChange={e=>{snap();upd(selC.id,{type:e.target.value});}}>{Object.keys(DEFS).filter(k=>DEFS[k].act===DEFS[selC.type].act).map(k=>(<option key={k} value={k}>{t.forms[DEFS[k].form]}</option>))}</select></div>)}
           {DEFS[selC.type].timer&&(<div className="field"><label htmlFor="cdly">{t.delay}</label><input id="cdly" type="number" min="0.1" step="0.5" dir="ltr" value={tcDelay(selC.tag)} onInput={e=>{const v=e.target.value;setComps(cs=>cs.map(x=>(/^tcoil/.test(x.type)||DEFS[x.type].timer)&&x.tag===selC.tag?{...x,delay:v}:x));}}/></div>)}
+          {(TIMED.has(selC.type)||selC.type==='pulse_cnt')&&(<div className="field"><label htmlFor="xdly">{selC.type==='pulse_cnt'?t.preset:t.delay}</label><input id="xdly" type="number" min={selC.type==='pulse_cnt'?1:0.1} step={selC.type==='pulse_cnt'?1:0.5} dir="ltr" value={selC.delay??(selC.type==='pulse_cnt'?5:1)} onFocus={snap} onInput={e=>upd(selC.id,{delay:e.target.value})}/></div>)}
           {/^tcoil/.test(selC.type)&&(<div className="field"><label htmlFor="dly">{t.delay}</label><input id="dly" type="number" min="0.1" step="0.5" dir="ltr" value={selC.delay} onInput={e=>upd(selC.id,{delay:e.target.value})}/></div>)}
           {DEFS[selC.type].kind==='plc'&&(()=>{const pr=parseProgram(selC.prog||''),ad=plcAddrs(selC.type);return (<div className="field"><label htmlFor="prog">{t.plcProg}</label>
             <textarea id="prog" dir="ltr" spellCheck="false" rows={8} value={selC.prog||''} placeholder={t.plcPlaceholder(ad.ins[0],ad.ins[1],ad.outs[0])} onFocus={snap} onInput={e=>upd(selC.id,{prog:e.target.value})} style={{width:'100%',fontFamily:'var(--f-mono)',fontSize:'12px',boxSizing:'border-box'}}/>
