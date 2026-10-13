@@ -92,18 +92,19 @@ export function ExtraSym({ type, s }) {
     case "ssr3": return (<>{[0, 30, 60].map((x, i) => no(x, on, cs[i], cs[i + 3], i))}
       <L x1={-6} y1={30} x2={78} y2={30} d="3 3" w={1.2} />{coil(90, on, cs[6], cs[7], T(90, 34, "SSR", 8))}</>);
     case "step_relay": return coil(0, on, cs[0], cs[1], <><L x1={-12} y1={26} x2={12} y2={26} w={1.2} /><path d="M -6 36 l 6 -6 l 6 6" fill="none" stroke={ink} strokeWidth={1.4} /></>);
-    case "bistable": return (<>
-      <L x1={0} y1={0} x2={0} y2={20} c={cs[0]} /><L x1={30} y1={0} x2={30} y2={20} c={cs[1]} /><L x1={0} y1={40} x2={0} y2={60} c={cs[2]} />
-      {box(-12, 20, 54, 20, on)}<L x1={15} y1={20} x2={15} y2={40} w={1.2} />{T(0, 34, "S", 10)}{T(30, 34, "R", 10)}
-      <L x1={30} y1={40} x2={30} y2={46} w={1.2} /><L x1={30} y1={46} x2={0} y2={46} w={1.2} />{pinLab(3, 10, "A1")}{pinLab(33, 10, "B1")}</>);
+    case "bistable": return (<> {/* A1 (set) and B1 (reset) on top either side, A2 below the middle */}
+      <L x1={-15} y1={0} x2={-15} y2={20} c={cs[0]} /><L x1={15} y1={0} x2={15} y2={20} c={cs[1]} /><L x1={0} y1={40} x2={0} y2={60} c={cs[2]} />
+      {box(-20, 20, 40, 20, on)}<L x1={-14} y1={38} x2={-6} y2={22} w={1.3} /><L x1={6} y1={22} x2={14} y2={38} w={1.3} />
+      {pinLab(-12, 10, "A1")}{pinLab(18, 10, "B1")}{pinLab(3, 58, "A2")}</>);
     case "flasher": case "pulse_gen": return coil(0, on, cs[0], cs[1],
       <polyline points={type === "flasher" ? "-8,35 -8,26 -2,26 -2,35 4,35 4,26 9,26" : "-8,35 -4,35 -4,26 0,26 0,35 4,35 4,26 8,26 8,35"} fill="none" stroke={ink} strokeWidth={1.3} />);
     case "time_sw": return coil(0, on, cs[0], cs[1], <><circle cx={0} cy={30} r={7} fill="none" stroke={ink} strokeWidth={1.3} /><path d="M 0 25 L 0 30 L 4 32" fill="none" stroke={ink} strokeWidth={1.3} />
       {s.act && <circle cx={14} cy={18} r={3} fill="var(--ok)" />}</>);
-    case "pulse_cnt": return (<>
-      {[0, 30, 60, 90].map((x, i) => <L key={i} x1={x} y1={0} x2={x} y2={20} c={cs[i]} />)}<L x1={0} y1={40} x2={0} y2={60} c={cs[4]} />
-      {box(-12, 20, 114, 20, on)}{T(45, 34, `${s.cnt || 0} / ${s.preset || d.preset}`, 11)}
-      {["A1", "C", "D", "R"].map((t, i) => <g key={t}>{pinLab(i * 30 + 3, 10, t)}</g>)}{pinLab(3, 56, "A2")}</>);
+    case "pulse_cnt": return (<> {/* A1 C D R on top, A2 below C (as in CADe SIMU) */}
+      {[[0, 0, "A1"], [30, 1, "C"], [45, 2, "D"], [60, 3, "R"]].map(([x, i, t]) => <g key={t}><L x1={x} y1={0} x2={x} y2={15} c={cs[i]} />{pinLab(x + 2, 10, t)}</g>)}
+      <L x1={30} y1={45} x2={30} y2={60} c={cs[4]} />{pinLab(33, 58, "A2")}
+      {box(-15, 15, 90, 30, on)}<L x1={15} y1={15} x2={15} y2={45} w={1.2} /><circle cx={0} cy={30} r={9} fill="none" stroke={ink} strokeWidth={1.3} />
+      {T(45, 35, `${s.cnt || 0}/${s.preset || d.preset}`, 10)}</>);
     case "ph_loss": case "ph_seq": case "ph_nseq": case "ph_nfault": // as CADe SIMU: L1 L2 L3 on top, N below the first one; F = fault / loss, S = sequence
       return (<>{[0, 30, 60].map((x, i) => <L key={i} x1={x} y1={0} x2={x} y2={15} c={cs[i]} />)}{d.neu && <L x1={0} y1={45} x2={0} y2={60} c={cs[3]} />}
         {box(-15, 15, 90, 30, false)}{T(30, 35, d.seq ? "S" : "F", 13, "middle", 700)}

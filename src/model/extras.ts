@@ -37,12 +37,12 @@ export const EXTRA_DEFS = {
 
   /* coils that drive contacts with the same tag */
   step_relay: { group: 'relay', prefix: 'KA', kind: 'load', pins: [[0, 0], [0, 4]], plabels: ['A1', 'A2'], load: [0, 1], drive: 'step', box: B(-36, -4, 72, 68), lab: [22, 34] },
-  bistable: { group: 'relay', prefix: 'KA', kind: 'load', pins: [[0, 0], [2, 0], [0, 4]], plabels: ['A1', 'B1', 'A2'], load: [0, 2], load2: [1, 2], drive: 'bistable', box: B(-36, -4, 102, 68), lab: [50, 34] },
+  bistable: { group: 'relay', prefix: 'KA', kind: 'load', pins: [[-1, 0], [1, 0], [0, 4]], plabels: ['A1', 'B1', 'A2'], load: [0, 2], load2: [1, 2], drive: 'bistable', box: B(-36, -4, 72, 68), lab: [24, 34] },
   flasher: { group: 'timer', prefix: 'KF', kind: 'load', pins: [[0, 0], [0, 4]], plabels: ['A1', 'A2'], load: [0, 1], drive: 'flash', period: 1, box: B(-36, -4, 72, 68), lab: [22, 34] },
   pulse_gen: { group: 'timer', prefix: 'KT', kind: 'load', pins: [[0, 0], [0, 4]], plabels: ['A1', 'A2'], load: [0, 1], drive: 'flash', period: 1, box: B(-36, -4, 72, 68), lab: [22, 34] },
   time_sw: { group: 'timer', prefix: 'KH', kind: 'load', pins: [[0, 0], [0, 4]], plabels: ['A1', 'A2'], load: [0, 1], drive: 'timesw', latch: 1, box: B(-36, -4, 72, 68), lab: [22, 34] },
-  pulse_cnt: { group: 'timer', prefix: 'KC', kind: 'load', pins: [[0, 0], [2, 0], [4, 0], [6, 0], [0, 4]], plabels: ['A1', 'C', 'D', 'R', 'A2'], load: [0, 4], drive: 'count', preset: 5,
-    box: B(-24, -4, 132, 68), lab: [100, 34] },
+  pulse_cnt: { group: 'timer', prefix: 'KC', kind: 'load', pins: [[0, 0], [2, 0], [3, 0], [4, 0], [2, 4]], plabels: ['A1', 'C', 'D', 'R', 'A2'], load: [0, 4], drive: 'count', preset: 5,
+    box: B(-20, -4, 100, 68), lab: [-44, 34] },
 
   /* phase monitoring relays: their contacts (same tag) close while the supply is healthy */
   ph_loss: { group: 'prot', prefix: 'KP', kind: 'mon', pins: [[0, 0], [2, 0], [4, 0]], plabels: ['L1', 'L2', 'L3'], drive: 'phase', seq: false, neu: false, box: B(-18, -4, 96, 68), lab: [-44, 34] },
@@ -93,7 +93,7 @@ export const TIMED = new Set(['flasher', 'pulse_gen', 'lg_ton', 'lg_toff']);
 
 /* CADe SIMU codes. Terminal names, label boxes and extra fields come from CADe SIMU's own records;
    terminal positions measured in CADe SIMU (VERIFIED below); the others are drawn here and not checked yet. */
-export const VERIFIED = new Set([9040, 9041, 9042, 9043, 10000, 10010, 10020, 10030, 10040, 10041, 1003, 1004, 1006, 1007, 1008, 1009, 1010, 1070, 1071, 1072, 1074, 1075, 3012, 3013, 3014, 3017, 3018, 7551, 7559, 8020, 8022]);
+export const VERIFIED = new Set([9001, 9002, 9014, 9015, 9016, 9040, 9041, 9042, 9043, 10000, 10010, 10020, 10030, 10040, 10041, 1003, 1004, 1006, 1007, 1008, 1009, 1010, 1070, 1071, 1072, 1074, 1075, 3012, 3013, 3014, 3017, 3018, 7551, 7559, 8020, 8022]);
 export const EXTRA_CAD = {
   8020: { type: 'sw_i0ii', labels: ['1', '2', '3'], box: [-18, -3, 12, 15], flags: [1,1,1,0,0,0,0,0] },
   8021: { type: 'sw_i3', labels: ['1', '2', '3', '4'], box: [-18, -3, 12, 15] },
