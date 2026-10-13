@@ -118,6 +118,13 @@ export const CAD_WIRE={4000:'ph',4009:'n',4010:'pe',4018:'pos',4019:'neg'};
 export const CAD_WIRE_CODE={ph:4000,n:4009,pe:4010,pos:4018,neg:4019};
 export const CAD_JUNCTION=4001,CAD_HEADER=20000;
 Object.assign(CAD_PARTS,EXTRA_CAD); // more parts (src/model/extras.ts)
+/** terminal names of a part, in pin order: the numbers stored in its .cad record (as CADe SIMU wrote them),
+    else CADe SIMU's default numbers for that kind of part */
+export function termNames(c,npins){
+  const fromRec=c.cad&&c.type!=='raw'?c.cad.text.split('#').slice(2,2+npins):null;
+  if(fromRec&&fromRec.some(Boolean))return fromRec;
+  const code=TYPE_TO_CAD[c.type],p=code&&CAD_PARTS[code];
+  return p&&p.labels.length?p.labels.slice(0,npins):null;}
 export const TYPE_TO_CAD={};Object.entries(CAD_PARTS).forEach(([code,p])=>{if(!(p.type in TYPE_TO_CAD))TYPE_TO_CAD[p.type]=+code;});
 export const CAD_DEFAULT_HEADER='*1*20000#XXX#########*0*0*0*0*0*0*0*0*42*486*0*0*0*0*0*0*0*0*0*0*0*0*0#';
 export const CAD_DEFAULT_FOOTER='$$$*1*1*1*2*6*0*0*0*0*  0*  0&&&**          **          **          **          **                        **                        **28-Sep-202**1         **1         *CADe_S1.4            *0*1*1*0*0*0*0*0*0*0*0*0*0*0***$$$&&&';

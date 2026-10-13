@@ -21,8 +21,8 @@ export const EXTRA_DEFS = {
   /* switches */
   sw_i0ii: { group: 'ctrl', prefix: 'S', kind: 'contact', pins: [[1, 0], [0, 4], [2, 4]], plabels: ['1', '2', '3'], multi: 3, posLabels: ['0', 'I', 'II'],
     paths: [[0, 1, 'pos1'], [0, 2, 'pos2']], box: B(-38, -6, 82, 72), lab: [40, 20] },
-  sw_i3: { group: 'ctrl', prefix: 'S', kind: 'contact', pins: [[0, 0], [-2, 4], [0, 4], [2, 4]], plabels: ['1', '2', '3', '4'], multi: 3, posLabels: ['I', 'II', 'III'],
-    paths: [[0, 1, 'pos0'], [0, 2, 'pos1'], [0, 3, 'pos2']], box: B(-44, -6, 82, 72), lab: [24, 20] },
+  sw_i3: { group: 'ctrl', prefix: 'S', kind: 'contact', pins: [[2, 0], [0, 4], [2, 4], [4, 4]], plabels: ['1', '2', '3', '4'], multi: 3, posLabels: ['I', 'II', 'III'],
+    paths: [[0, 1, 'pos0'], [0, 2, 'pos1'], [0, 3, 'pos2']], box: B(-30, -6, 100, 72), lab: [70, 20] },
   sw_cross: { group: 'ctrl', prefix: 'S', kind: 'contact', pins: [[0, 0], [2, 0], [0, 4], [2, 4]], plabels: ['1', '2', '3', '4'], multi: 2, posLabels: ['×', '='],
     paths: [[0, 3, 'pos0'], [1, 2, 'pos0'], [0, 2, 'pos1'], [1, 3, 'pos1']], box: B(-30, -6, 76, 72), lab: [40, 34] },
 
@@ -93,7 +93,7 @@ export const TIMED = new Set(['flasher', 'pulse_gen', 'lg_ton', 'lg_toff']);
 
 /* CADe SIMU codes. Terminal names, label boxes and extra fields come from CADe SIMU's own records;
    terminal positions measured in CADe SIMU (VERIFIED below); the others are drawn here and not checked yet. */
-export const VERIFIED = new Set([10064, 10066, 10067, 9001, 9002, 9014, 9015, 9016, 9040, 9041, 9042, 9043, 10000, 10010, 10020, 10030, 10040, 10041, 1003, 1004, 1006, 1007, 1008, 1009, 1010, 1070, 1071, 1072, 1074, 1075, 3012, 3013, 3014, 3017, 3018, 7551, 7559, 8020, 8022]);
+export const VERIFIED = new Set([8021, 10064, 10066, 10067, 9001, 9002, 9014, 9015, 9016, 9040, 9041, 9042, 9043, 10000, 10010, 10020, 10030, 10040, 10041, 1003, 1004, 1006, 1007, 1008, 1009, 1010, 1070, 1071, 1072, 1074, 1075, 3012, 3013, 3014, 3017, 3018, 7551, 7559, 8020, 8022]);
 export const EXTRA_CAD = {
   8020: { type: 'sw_i0ii', labels: ['1', '2', '3'], box: [-18, -3, 12, 15], flags: [1,1,1,0,0,0,0,0] },
   8021: { type: 'sw_i3', labels: ['1', '2', '3', '4'], box: [-18, -3, 12, 15] },

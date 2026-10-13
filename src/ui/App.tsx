@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { CAD_CATALOG_NAMES, RAW_CAT, RAW_NAMES, rawTerminals } from "../cad/catalog";
 import { addImage, imageOf, isImageFile } from "./images";
-import { parseCad, writeCad } from "../cad/format";
+import { parseCad, writeCad, termNames } from "../cad/format";
 import { useLang, useHistory, usePersist, useSaver, useFlash, useKeys, nid, safeName } from "../shared/hooks";
 import { DocTabs } from "../shared/tabs";
 import { COMMON, readLang } from "../shared/i18n";
@@ -24,6 +24,9 @@ export function loadSaved(key=STORE,blank=false){try{const s=JSON.parse(localSto
 const EXAMPLES=[['cad','exCad',cadExample],['timer','exTimer',timerExample],['p3','ex3',threePhaseExample],['t6','exT6',test6Example],['t7','exT7',test7Example],['all','exAll',catalogExample],['all2','exAll2',catalog2Example],['all3','exAll3',catalog3Example],['all4','exAll4',catalog4Example],['all5','exAll5',catalog5Example]];
 
 /** one editor per tab: see shared/tabs.tsx */
+/* parts whose drawing does not already carry its terminal names */
+const NUMBERED=new Set(['coil','tcoil','tcoil_off','tcoil_both','lamp','lampf','buzzer','bell','siren','horn','valve','motor','motor1','motor3','sw','breaker2','switch2','sw_i0ii','sw_i3','sw_cross','bar_tx','step_relay','flasher','pulse_gen','time_sw','battery']);
+const showNums=t=>{const d=DEFS[t];return !!d&&(NUMBERED.has(t)||!!d.form||!!d.fam);};
 export function App({onHome}={}){const [lang]=useLang();
   return (<DocTabs store={STORE} lang={lang} untitled={COMMON[lang].untitled} render={(tab,p)=>(<Editor onHome={onHome} tab={p}/>)}/>);}
 
@@ -355,6 +358,12 @@ function Editor({onHome,tab}){
               <Sym type={c.type} s={s}/>
               {mode==='edit'&&d.pins.map((pp,i)=>(<circle key={i} cx={pp[0]*G} cy={pp[1]*G} r="2.6" fill="var(--sheet)" stroke="currentColor" strokeWidth="1.4"/>))}
             </g>);})}
+          {/* terminal numbers next to each terminal, as CADe SIMU shows them (13/14, 11/12, 95/96, A1/A2…) */}
+          {comps.map(c=>{const d=DEFS[c.type];if(!showNums(c.type))return null;const names=termNames(c,d.pins.length)||d.plabels;if(!names)return null;
+            const ys=d.pins.map(p=>p[1]),y0=Math.min(...ys),y1=Math.max(...ys);
+            return (<g key={'n'+c.id} pointerEvents="none">{d.pins.map((p,i)=>{const nm=names[i];if(!nm)return null;
+              const off=p[1]===y0&&y1>y0?[4,13]:p[1]===y1&&y1>y0?[4,-5]:[4,-4];const [ox,oy]=rotV(c.rot|0,off[0],off[1]);const [px,py]=rotV(c.rot|0,p[0]*G,p[1]*G);
+              return (<text key={i} x={c.x*G+px+ox} y={c.y*G+py+oy} fontSize="9" fill="var(--muted)" fontFamily="var(--f-mono)">{nm}</text>);})}</g>);})}
           {comps.map(c=>{const lp=c.type==='raw'&&(RAW_NAMES[c.cad.code]||RAW_DRAWN.has(c.cad.code))?null:labelPos(c);if(!lp||!c.tag)return null;const d=DEFS[c.type];
             const st=(/^tcoil/.test(c.type)||d.timer)&&res&&sim.timers[c.tag];const dl=tcDelay(c.tag);const el=st?(now-st.t)/1000:0;
             const extra=!st?'':st.on?` ${Math.min(el,dl).toFixed(1)}/${dl}s`:el<dl?` ↓${(dl-el).toFixed(1)}s`:'';

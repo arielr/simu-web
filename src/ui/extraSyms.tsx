@@ -64,7 +64,7 @@ export function ExtraSym({ type, s }) {
   const cs = s.cs || [], on = !!s.on, pos = +s.pos || 0;
   switch (type) {
     case "sw_i0ii": return rotary(15, [0, 30], pos === 0 ? -1 : pos - 1, d.posLabels, cs, 1);
-    case "sw_i3": return rotary(0, [-30, 0, 30], pos, d.posLabels, cs, 0);
+    case "sw_i3": return rotary(30, [0, 30, 60], pos, d.posLabels, cs, 0);
     case "sw_cross": { // 1 2 on top, 3 4 below; rest: crossed (1–4, 2–3), switched: straight (1–3, 2–4)
       const st = pos === 1;
       return (<>
