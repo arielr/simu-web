@@ -20,7 +20,8 @@ import {
   FComp, FluidDoc, FluidDomain, PortRef, Tube, FLUID_KIND, MM, SNAP, PORT_R,
   partOf, portsOf, portPos, rotSize, rotTransform, routeTube, isFluidPart, unrotPt,
 } from "./model";
-import { useLang, useHistory, usePersist, useSaver, useFlash, useKeys, useTitle, loadPersisted, nid, safeName } from "../shared/hooks";
+import { useLang, useHistory, usePersist, useSaver, useFlash, useKeys, loadPersisted, nid, safeName } from "../shared/hooks";
+import { DocTabs, type TabProps } from "../shared/tabs";
 import { COMMON } from "../shared/i18n";
 import { EditorFrame, HomeButton, Brand, Seg, ZoomControl, UndoButton, NameField, ExamplesMenu, BarEnd, PartsDrawer, Dialog, StageMessage, Preview, matches } from "../shared/ui";
 
@@ -59,9 +60,10 @@ function groupOf(p: FluidPart): string {
   return GROUPS.includes(seg) ? seg : "other";
 }
 
-function loadDoc(d: FluidDomain, t: typeof FS.en): FluidDoc {
-  const s = loadPersisted<FluidDoc>(storeKey(d), (v) => Array.isArray(v.comps));
+function loadDoc(d: FluidDomain, t: typeof FS.en, key = storeKey(d), blank = false): FluidDoc {
+  const s = loadPersisted<FluidDoc>(key, (v) => Array.isArray(v.comps));
   if (s) return s;
+  if (blank) return { name: "", comps: [], tubes: [] };
   const ex = FLUID_EXAMPLES[d][0];
   try { const r = importCt(ex.bytes(), (t as any)[ex.key]); return { name: r.name, comps: r.comps, tubes: r.tubes }; } catch { return { name: t.newName, comps: [], tubes: [] }; }
 }
@@ -74,10 +76,17 @@ function PartIcon({ part }: { part: FluidPart }) {
   return (<svg className="fl" width="44" height="30" viewBox={`${(w - s) / 2} ${(h - s * 0.76) / 2} ${s} ${s * 0.76}`} aria-hidden="true"><FluidSymbol part={part} /></svg>);
 }
 
+/** one editor per tab: see shared/tabs.tsx */
 export function FluidApp({ domain, onHome }: { domain: FluidDomain; onHome?: () => void }) {
+  const [lang] = useLang();
+  return <DocTabs store={storeKey(domain)} lang={lang} untitled={COMMON[lang].untitled} render={(_, p) => <FluidEditor domain={domain} onHome={onHome} tab={p} />} />;
+}
+
+function FluidEditor({ domain, onHome, tab }: { domain: FluidDomain; onHome?: () => void; tab: TabProps }) {
   const [lang, setLang] = useLang();
+  const active = tab.active;
   const t = FS[lang], c0 = COMMON[lang];
-  const init = useMemo(() => loadDoc(domain, t), [domain]);
+  const init = useMemo(() => loadDoc(domain, t, tab.storeKey, tab.blank), [domain]);
   const [name, setName] = useState(init.name || "");
   const [comps, setComps] = useState<FComp[]>(init.comps);
   const [tubes, setTubes] = useState<Tube[]>(init.tubes);
@@ -105,8 +114,9 @@ export function FluidApp({ domain, onHome }: { domain: FluidDomain; onHome?: () 
 
   const title = c0.programs[domain === "pneu" ? "pneumatic" : "hydraulic"];
   const doc = useMemo(() => ({ name, comps, tubes }), [name, comps, tubes]);
-  usePersist(storeKey(domain), doc);
-  useTitle(`SIMU Web · ${title}`);
+  usePersist(tab.storeKey, doc);
+  useEffect(() => { tab.onName(name); }, [name]);
+  useEffect(() => { if (active) document.title = `SIMU Web · ${title}` + (name ? " · " + name : ""); });
 
   const palette = useMemo(() => {
     const kind = FLUID_KIND[domain];
@@ -133,14 +143,17 @@ export function FluidApp({ domain, onHome }: { domain: FluidDomain; onHome?: () 
   const ext = extent(comps);
   const SHEET_W = Math.max(A3W, ext ? ext[2] + 20 * MM : 0), SHEET_H = Math.max(A3H, ext ? ext[3] + 20 * MM : 0);
   // zoom to fit the circuit after loading a file
+  const fitDone = useRef(0);
   useEffect(() => {
     const st = stageRef.current, e = extent(comps);
-    if (!st || !e) return;
+    if (!st || !e || fitDone.current === fitReq) return;
+    if (!st.clientWidth) return; // hidden tab: fit when it is shown
+    fitDone.current = fitReq;
     const m = 12 * MM, z = Math.min(st.clientWidth / ((e[2] - e[0] + 2 * m) * PX), st.clientHeight / ((e[3] - e[1] + 2 * m) * PX), 2);
     const zz = Math.max(0.25, Math.floor(z * 20) / 20);
     setZoom(zz);
     requestAnimationFrame(() => { st.scrollLeft = (e[0] - m) * PX * zz; st.scrollTop = (e[1] - m) * PX * zz; });
-  }, [fitReq]);
+  }, [fitReq, active]);
 
   /* ---- simulation ---- */
   useEffect(() => { if (mode !== "sim") return; const i = setInterval(() => setNow(Date.now()), 100); return () => clearInterval(i); }, [mode]);
@@ -337,7 +350,7 @@ export function FluidApp({ domain, onHome }: { domain: FluidDomain; onHome?: () 
     setSel(null);
   };
   useKeys((e) => {
-    if (dlg || vdlg || cdlg) return;
+    if (!active || dlg || vdlg || cdlg) return;
     if (mode === "sim") { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") e.preventDefault(); return; }
     if (e.key === "Escape") { setDraft(null); setTool("select"); setPlaceRot(0); }
     else if (e.key === "r" || e.key === "R" || e.key === "ר") rotateSel();
@@ -358,6 +371,8 @@ export function FluidApp({ domain, onHome }: { domain: FluidDomain; onHome?: () 
   const openJson = async (f: File) => {
     try { const d = JSON.parse(await f.text()); if (Array.isArray(d.comps)) { loadDoc2({ name: d.name || f.name, comps: d.comps, tubes: d.tubes || [] }); setDlg(false); } } catch (err: any) { setMsg(String(err?.message || err)); }
   };
+  // files given to a tab made by "open in new tab"
+  useEffect(() => { const f = tab.files?.find((x) => /\.(ct|json)$/i.test(x.name)); if (f) (/\.ct$/i.test(f.name) ? openCt : openJson)(f); }, []);
   const saveJson = async () => {
     if (!saver) return;
     await saver.saveJson(safeName(name), JSON.stringify({ app: "simu-web", domain, name, comps: comps.map(({ part, ...c }) => (FLUID_CATALOG[c.key] ? c : { ...c, part })), tubes }, null, 1));
@@ -386,7 +401,7 @@ export function FluidApp({ domain, onHome }: { domain: FluidDomain; onHome?: () 
       onFile={() => setDlg(true)} />
   </>);
 
-  return (<EditorFrame app={domain} lang={lang} bar={bar}
+  return (<EditorFrame app={domain} lang={lang} bar={bar} tabs={tab.tabs}
     drawer={<PartsDrawer lang={lang} groups={palette} disabled={mode === "sim"} active={tool.startsWith("place:") ? tool.slice(6) : null} query={query} setQuery={setQuery}
       onPick={(k) => { setDraft(null); setTool("place:" + k); setPlaceRot(0); setSel(null); }} />}
     stage={

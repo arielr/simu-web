@@ -1,12 +1,15 @@
 /** React hooks shared by all three programs. */
 import { useEffect, useRef, useState } from "react";
 import { readLang, writeLang, Lang } from "./i18n";
+const LANG_EVENT = "simu-web-lang";
 import { detectSaver, Saver } from "../platform/save";
 
 /** language, shared between programs through localStorage */
 export function useLang(initial?: Lang): [Lang, (l: Lang) => void] {
   const [lang, setLang] = useState<Lang>(initial || readLang);
-  useEffect(() => writeLang(lang), [lang]);
+  useEffect(() => { writeLang(lang); window.dispatchEvent(new CustomEvent(LANG_EVENT, { detail: lang })); }, [lang]);
+  // other editors on the page (tabs) follow a language change
+  useEffect(() => { const f = (e: Event) => setLang((e as CustomEvent).detail); window.addEventListener(LANG_EVENT, f); return () => window.removeEventListener(LANG_EVENT, f); }, []);
   return [lang, setLang];
 }
 

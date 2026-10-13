@@ -207,3 +207,17 @@ a.card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .isel.big .ilist button span{display:none}
 .isel.big .ilist button{justify-content:center;padding:4px 10px}
 .isel>button:disabled{opacity:.45}
+
+/* document tabs */
+.app.with-tabs{grid-template-rows:auto auto 1fr auto}
+.doctab-pane{height:100%}
+.doctabs{display:flex;align-items:flex-end;gap:2px;overflow-x:auto;border-bottom:1px solid var(--line);margin-bottom:-6px;scrollbar-width:thin}
+.doctab{display:flex;align-items:center;gap:4px;max-width:220px;padding:5px 6px 5px 12px;border:1px solid var(--line);border-bottom:none;border-radius:8px 8px 0 0;
+  background:color-mix(in srgb,var(--ink) 4%,var(--bg));color:var(--muted);cursor:pointer;font-size:13px;white-space:nowrap;user-select:none}
+.doctab.on{background:var(--sheet);color:var(--ink);font-weight:600;position:relative;top:1px}
+.doctab .dt-name{overflow:hidden;text-overflow:ellipsis}
+.doctab .dt-x{border:none;background:none;padding:0 4px;min-height:0;height:20px;line-height:1;font-size:15px;color:var(--muted);border-radius:4px;cursor:pointer}
+.doctab .dt-x:hover{background:color-mix(in srgb,var(--ink) 10%,transparent);color:var(--ink)}
+.doctabs .dt-add{border:none;background:none;padding:4px 10px;min-height:0;color:var(--muted);font-size:13px;white-space:nowrap;cursor:pointer;border-radius:6px}
+.doctabs .dt-add:first-of-type{font-size:18px}
+.doctabs .dt-add:hover{color:var(--ink);background:color-mix(in srgb,var(--ink) 7%,transparent)}

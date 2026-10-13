@@ -9,11 +9,12 @@ import { COMMON, Lang } from "./i18n";
 export type AppId = "elec" | "pneu" | "hyd";
 
 /** page frame: top bar, drawer | stage | inspector, status line */
-export function EditorFrame({ app, lang, bar, drawer, stage, inspector, status, overlay }: {
-  app: AppId; lang: Lang; bar: ReactNode; drawer: ReactNode; stage: ReactNode; inspector: ReactNode; status: ReactNode; overlay?: ReactNode;
+export function EditorFrame({ app, lang, bar, tabs, drawer, stage, inspector, status, overlay }: {
+  app: AppId; lang: Lang; bar: ReactNode; tabs?: ReactNode; drawer: ReactNode; stage: ReactNode; inspector: ReactNode; status: ReactNode; overlay?: ReactNode;
 }) {
-  return (<div className="app" data-app={app} dir={COMMON[lang].dir} lang={lang}>
+  return (<div className={"app" + (tabs ? " with-tabs" : "")} data-app={app} dir={COMMON[lang].dir} lang={lang}>
     <div className="bar">{bar}</div>
+    {tabs}
     <div className="main">{drawer}{stage}<div className="insp">{inspector}</div></div>
     <div className="status">{status}</div>
     {overlay}

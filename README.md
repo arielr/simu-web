@@ -118,6 +118,16 @@ automatically without a browser; the UI layer only draws the state.
 | `src/examples/files/` | Sample and test `.cad` files made in CADe SIMU. |
 | `tests/` | Vitest suites. |
 
+## Tabs: several drawings at once
+
+Each program has a row of tabs under its top bar (`src/shared/tabs.tsx`): **+** opens an empty
+drawing, *Open in new tab…* opens a file (`.cad`, `.ct`, `.json`; pictures can be chosen with a
+`.cad`) in a new tab, × or a middle click closes one. Every tab is a complete editor kept in memory,
+so its undo history, zoom and simulation stay as they were when you switch; only the visible tab
+receives keyboard shortcuts and copy/paste, so parts can be copied from one tab and pasted into
+another. Each tab's drawing is saved in the browser under its own key and the tabs come back after
+a reload.
+
 ## Electrical editor: PLCs
 
 `src/model/plc.ts`: Schneider M221 (TM221C16R) and M241 (TM241CE40U), Siemens S7-200 CPU 226 and

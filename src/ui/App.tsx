@@ -3,7 +3,8 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { CAD_CATALOG_NAMES, RAW_CAT, RAW_NAMES, rawTerminals } from "../cad/catalog";
 import { addImage, imageOf, isImageFile } from "./images";
 import { parseCad, writeCad } from "../cad/format";
-import { useLang, useHistory, usePersist, useSaver, useFlash, useKeys, useTitle, nid, safeName } from "../shared/hooks";
+import { useLang, useHistory, usePersist, useSaver, useFlash, useKeys, nid, safeName } from "../shared/hooks";
+import { DocTabs } from "../shared/tabs";
 import { COMMON, readLang } from "../shared/i18n";
 import { EditorFrame, HomeButton, Brand, Seg, ZoomControl, UndoButton, NameField, ExamplesMenu, BarEnd, PartsDrawer, Dialog, matches } from "../shared/ui";
 import { cadExample, catalog2Example, catalog3Example, catalog4Example, catalog5Example, catalogExample, test6Example, test7Example, threePhaseExample, timerExample } from "../examples/index";
@@ -18,13 +19,18 @@ import { parseProgram, plcAddrs } from "../model/plc";
 
 export const STORE='simu-web-v6';
 export const initLang=readLang;
-export function loadSaved(){try{const s=JSON.parse(localStorage.getItem(STORE));if(s&&Array.isArray(s.comps))return s;}catch(e){}return cadExample(initLang());}
+export function loadSaved(key=STORE,blank=false){try{const s=JSON.parse(localStorage.getItem(key));if(s&&Array.isArray(s.comps))return s;}catch(e){}return blank?{name:'',comps:[],wires:[]}:cadExample(initLang());}
 const EXAMPLES=[['cad','exCad',cadExample],['timer','exTimer',timerExample],['p3','ex3',threePhaseExample],['t6','exT6',test6Example],['t7','exT7',test7Example],['all','exAll',catalogExample],['all2','exAll2',catalog2Example],['all3','exAll3',catalog3Example],['all4','exAll4',catalog4Example],['all5','exAll5',catalog5Example]];
 
-export function App({onHome}={}){
+/** one editor per tab: see shared/tabs.tsx */
+export function App({onHome}={}){const [lang]=useLang();
+  return (<DocTabs store={STORE} lang={lang} untitled={COMMON[lang].untitled} render={(tab,p)=>(<Editor onHome={onHome} tab={p}/>)}/>);}
+
+function Editor({onHome,tab}){
   const [lang,setLang]=useLang();const t=I18N[lang];
-  useTitle('SIMU Web · '+COMMON[lang].programs.electrical);
-  const init=useMemo(loadSaved,[]);
+  const active=tab.active;
+  useEffect(()=>{if(active)document.title='SIMU Web · '+COMMON[lang].programs.electrical+(name?' · '+name:'');});
+  const init=useMemo(()=>loadSaved(tab.storeKey,tab.blank),[]);
   const [name,setName]=useState(init.name||'');
   const [comps,setComps]=useState(init.comps);
   const [wires,setWires]=useState(init.wires);
@@ -54,7 +60,8 @@ export function App({onHome}={}){
   const svgRef=useRef(),stageRef=useRef(),drag=useRef(null);
 
   const persisted=useMemo(()=>({name,comps,wires,cadOrder:cadMeta.order,cadFooter:cadMeta.footer}),[name,comps,wires,cadMeta]);
-  usePersist(STORE,persisted);
+  usePersist(tab.storeKey,persisted);
+  useEffect(()=>{tab.onName(name);},[name]);
   const {push:snap,undo}=useHistory(()=>({comps,wires}),h=>{setComps(h.comps);setWires(h.wires);setSel(null);});
 
   useEffect(()=>{if(mode!=='sim')return;const i=setInterval(()=>setNow(Date.now()),100);return()=>clearInterval(i);},[mode]);
@@ -187,7 +194,7 @@ export function App({onHome}={}){
   const rotSel=()=>{const S=selSet();const ids=S.cs.filter(id=>{const c=comps.find(x=>x.id===id);return c&&!['src','raw'].includes(DEFS[c.type].kind);});if(!ids.length)return;snap();setComps(cs=>cs.map(x=>ids.includes(x.id)?{...x,rot:((x.rot|0)+1)%4}:x));};
   const saveSelCad=async()=>{const it=selItems();if(!dl){setMsg(t.noSave);return;}try{const ok=await dl.saveCad(safeName((name||t.untitled)+'-'+t.selFile),cadOf(it.comps,it.wires));if(ok)setMsg(t.saved);}catch(err){if(err&&err.code==='declined')return;setMsg(t.noSave);}};
   /* copy / cut / paste through the system clipboard (keyboard shortcuts and menu); text fields keep their own */
-  useEffect(()=>{
+  useEffect(()=>{if(!active)return;
     const inField=()=>{const a=document.activeElement;return a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.tagName==='SELECT'||a.isContentEditable);};
     const onCopy=e=>{if(mode!=='edit'||dlg||inField())return;copySel(e);};
     const onCut=e=>{if(mode!=='edit'||dlg||inField())return;if(copySel(e))delSel();};
@@ -201,7 +208,7 @@ export function App({onHome}={}){
     return()=>{document.removeEventListener('copy',onCopy);document.removeEventListener('cut',onCut);document.removeEventListener('paste',onPaste);};
   });
 
-  useKeys(e=>{if(dlg)return;
+  useKeys(e=>{if(!active||dlg)return;
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undo();return;}
     if(mode!=='edit')return;
     const mod=e.ctrlKey||e.metaKey,k=e.key.toLowerCase();
@@ -255,9 +262,11 @@ export function App({onHome}={}){
   /* pictures named in the drawing (code 9) can be chosen together with the .cad file, or later from the inspector */
   const addImages=async fs=>{const got=[];for(const f of fs){try{got.push(await addImage(f));}catch(e){}}
     if(got.length){setImgTick(n=>n+1);setMsg(t.imgLoaded(got.join(', ')));}return got;};
-  const onFile=async e=>{const all=[...e.target.files];e.target.value='';const imgs=all.filter(isImageFile),f=all.find(x=>!isImageFile(x));
+  const openFiles=async all=>{const imgs=all.filter(isImageFile),f=all.find(x=>!isImageFile(x));
     if(imgs.length)await addImages(imgs);if(!f)return;const r=new FileReader();
     r.onload=()=>importText(r.result,f.name);r.readAsText(f,'windows-1252');};
+  const onFile=e=>{const all=[...e.target.files];e.target.value='';openFiles(all);};
+  useEffect(()=>{if(tab.files)openFiles(tab.files);},[]);
   const copy=async txt=>{try{await navigator.clipboard.writeText(txt);setMsg(t.copied);}catch(e){const ta=document.getElementById('exp');ta&&ta.select();setMsg(t.copyManual);}};
   const saveFile=async()=>{if(!dl){setMsg(t.noSave);return;}
     try{
@@ -288,7 +297,7 @@ export function App({onHome}={}){
         onFile={()=>setDlg('io')}/>
     </>);
 
-  return (<EditorFrame app="elec" lang={lang} bar={bar}
+  return (<EditorFrame app="elec" lang={lang} bar={bar} tabs={tab.tabs}
     drawer={<PartsDrawer lang={lang} label={t.parts_} groups={drawerGroups} active={tool==='wire'?'wire:'+wireKind:placing} disabled={mode==='sim'} onPick={k=>{toMode('edit');if(k.startsWith('wire:')){setWireKind(k.slice(5));setTool('wire');setWStart(null);setSel(null);}else setTool('place:'+k);}} query={query} setQuery={setQuery}/>}
     stage={<>
       <div className="stage" ref={stageRef}>
