@@ -17,6 +17,7 @@ import { About, Icon, PartPicture, Sym } from "./symbols";
 import { rawSym, RAW_DRAWN } from "./rawSyms";
 import { parseProgram, plcAddrs } from "../model/plc";
 import { TIMED } from "../model/extras";
+import { paletteGroups } from "../model/palette";
 
 export const STORE='simu-web-v6';
 export const initLang=readLang;
@@ -239,7 +240,7 @@ function Editor({onHome,tab}){
   const nodeColor=p=>{if(!res)return null;return PCOL[res.node(p)]||null;};
   const selC=sel?.k==='c'?comps.find(c=>c.id===sel.id):null;
   const selW=sel?.k==='w'?wires.find(w=>w.id===sel.id):null;
-  const groups=[...new Set(Object.values(DEFS).map(d=>d.group).filter(Boolean))];
+  const groups=useMemo(paletteGroups,[]); // CADe SIMU's toolbars and their order
   const placing=tool.startsWith('place:')?tool.slice(6):null;
 
   /* ---- file I/O ---- */
@@ -290,7 +291,7 @@ function Editor({onHome,tab}){
   const WIRE_COL={ph:'currentColor',n:'var(--neu)',pe:'var(--pe)',pos:'var(--live)',neg:'currentColor'};
   const wireItems=['ph','n','pe','pos','neg'].filter(k=>matches(query,t.kinds[k],t.wireWord)).map(k=>({key:'wire:'+k,label:`${t.wireWord} · ${t.kinds[k]}`,
     icon:<svg width="26" height="30" viewBox="0 0 26 30" aria-hidden="true"><circle cx="3" cy="24" r="2.4" fill="none" stroke="currentColor" strokeWidth="1.3"/><polyline points="3,24 3,6 23,6" fill="none" stroke={WIRE_COL[k]} strokeWidth="2.2" strokeDasharray={k==='pe'?'4 2':null}/><circle cx="23" cy="6" r="2.4" fill="none" stroke="currentColor" strokeWidth="1.3"/></svg>}));
-  const drawerGroups=[{id:'wires',title:t.wiresGroup,items:wireItems},...groups.map(g=>({id:g,title:t.groups[g],items:Object.entries(DEFS).filter(([k,d])=>d.group===g&&!PALETTE_HIDE.has(k)&&matches(query,pname(t,k),k)).map(([k])=>({key:k,icon:<Icon type={k}/>,label:pname(t,k)}))}))];
+  const drawerGroups=[...groups.map(([g,ks])=>({id:g,title:t.groups[g],items:ks.filter(k=>!PALETTE_HIDE.has(k)&&matches(query,pname(t,k),k)).map(k=>({key:k,icon:<Icon type={k}/>,label:pname(t,k)}))})),{id:'wires',title:t.wiresGroup,items:wireItems}];
   const bar=(<>
       <HomeButton lang={lang} onHome={onHome}/>
       <Brand title={COMMON[lang].programs.electrical}/>
