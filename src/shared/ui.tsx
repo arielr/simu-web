@@ -9,13 +9,13 @@ import { COMMON, Lang } from "./i18n";
 export type AppId = "elec" | "pneu" | "hyd";
 
 /** page frame: top bar, drawer | stage | inspector, status line */
-export function EditorFrame({ app, lang, bar, tabs, drawer, stage, inspector, status, overlay }: {
-  app: AppId; lang: Lang; bar: ReactNode; tabs?: ReactNode; drawer: ReactNode; stage: ReactNode; inspector: ReactNode; status: ReactNode; overlay?: ReactNode;
+export function EditorFrame({ app, lang, bar, tabs, drawer, stage, zoom, inspector, status, overlay }: {
+  app: AppId; lang: Lang; bar: ReactNode; tabs?: ReactNode; drawer: ReactNode; stage: ReactNode; zoom?: ReactNode; inspector: ReactNode; status: ReactNode; overlay?: ReactNode;
 }) {
   return (<div className={"app" + (tabs ? " with-tabs" : "")} data-app={app} dir={COMMON[lang].dir} lang={lang}>
     <div className="bar">{bar}</div>
     {tabs}
-    <div className="main">{drawer}{stage}<div className="insp">{inspector}</div></div>
+    <div className="main">{drawer}<div className="stagewrap">{stage}{zoom && <div className="stagezoom">{zoom}</div>}</div><div className="insp">{inspector}</div></div>
     <div className="status">{status}</div>
     {overlay}
   </div>);
@@ -73,13 +73,13 @@ export function LangSelect({ lang, setLang }: { lang: Lang; setLang: (l: Lang) =
 
 /** right end of every top bar: zoom, new, examples, file, language */
 export function BarEnd({ lang, setLang, zoom, onNew, examples, onFile }: {
-  lang: Lang; setLang: (l: Lang) => void; zoom: ReactNode; onNew: () => void; examples: ReactNode; onFile: () => void;
+  lang: Lang; setLang: (l: Lang) => void; zoom?: ReactNode; onNew?: () => void; examples: ReactNode; onFile: () => void;
 }) {
   const t = COMMON[lang];
   return (<>
     <span className="spacer"></span>
     {zoom}
-    <button onClick={onNew}>{t.newDoc}</button>
+    {onNew && <button onClick={onNew}>{t.newDoc}</button>}
     {examples}
     <button className="go" onClick={onFile}>{t.file}</button>
     <LangSelect lang={lang} setLang={setLang} />

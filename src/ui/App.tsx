@@ -299,13 +299,11 @@ function Editor({onHome,tab}){
       <UndoButton lang={lang} onUndo={undo}/>
       <NameField lang={lang} value={name} onChange={setName}/>
       <BarEnd lang={lang} setLang={setLang}
-        zoom={<ZoomControl lang={lang} zoom={zoom} setZoom={setZoom} min={.5} max={2.5} onReset={()=>setZoom(1)}/>}
-        onNew={()=>{snap();toMode('edit');setComps([]);setWires([]);setName(t.newName);setCadMeta({order:null,footer:null});setSel(null);}}
         examples={<ExamplesMenu lang={lang} items={EXAMPLES.map(([k,l])=>[k,t[l]])} onPick={k=>{const ex=EXAMPLES.find(x=>x[0]===k);if(ex)loadDrawing(ex[2](lang),'');}}/>}
         onFile={()=>setDlg('io')}/>
     </>);
 
-  return (<EditorFrame app="elec" lang={lang} bar={bar} tabs={tab.tabs}
+  return (<EditorFrame app="elec" lang={lang} bar={bar} tabs={tab.tabs} zoom={<ZoomControl lang={lang} zoom={zoom} setZoom={setZoom} min={.5} max={2.5} onReset={()=>setZoom(1)}/>}
     drawer={<PartsDrawer lang={lang} label={t.parts_} groups={drawerGroups} active={tool==='wire'?'wire:'+wireKind:placing} disabled={mode==='sim'} onPick={k=>{toMode('edit');if(k.startsWith('wire:')){setWireKind(k.slice(5));setTool('wire');setWStart(null);setSel(null);}else setTool('place:'+k);}} query={query} setQuery={setQuery}/>}
     stage={<>
       <div className="stage" ref={stageRef}>

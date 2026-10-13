@@ -397,14 +397,12 @@ function FluidEditor({ domain, onHome, tab }: { domain: FluidDomain; onHome?: ()
     <UndoButton lang={lang} onUndo={undo} />
     <NameField lang={lang} value={name} onChange={setName} />
     <BarEnd lang={lang} setLang={setLang}
-      zoom={<ZoomControl lang={lang} zoom={zoom} setZoom={setZoom} onReset={() => setFitReq((n) => n + 1)} />}
-      onNew={() => { toMode("edit"); push(); setComps([]); setTubes([]); setName(t.newName); setSel(null); }}
       examples={<ExamplesMenu lang={lang} items={FLUID_EXAMPLES[domain].map((x) => [x.key, (t as any)[x.key]])}
         onPick={(k) => { const ex = FLUID_EXAMPLES[domain].find((x) => x.key === k); if (ex) { toMode("edit"); loadDoc2(importCt(ex.bytes(), (t as any)[ex.key])); } }} />}
       onFile={() => setDlg(true)} />
   </>);
 
-  return (<EditorFrame app={domain} lang={lang} bar={bar} tabs={tab.tabs}
+  return (<EditorFrame app={domain} lang={lang} bar={bar} tabs={tab.tabs} zoom={<ZoomControl lang={lang} zoom={zoom} setZoom={setZoom} onReset={() => setFitReq((n) => n + 1)} />}
     drawer={<PartsDrawer lang={lang} groups={palette} disabled={mode === "sim"} active={tool.startsWith("place:") ? tool.slice(6) : null} query={query} setQuery={setQuery}
       onPick={(k) => { setDraft(null); setTool("place:" + k); setPlaceRot(0); setSel(null); }} />}
     stage={
