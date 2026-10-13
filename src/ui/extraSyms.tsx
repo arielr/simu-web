@@ -47,8 +47,8 @@ function rotary(cx, xs, closedIdx, labels, cs, posLabelIdx) {
     <polyline points={`${mx - 18},24 ${mx - 22},24 ${mx - 22},36`} fill="none" stroke={ink} strokeWidth={1.8} /><L x1={mx - 22} y1={36} x2={mx - 26} y2={32} w={1.4} />
   </>);
 }
-function gateBox(sym, bubble, nIn, s, cs) { // as CADe SIMU: inputs at x 0, box from 3 to 12 units, output at 15 units in line with the last input
-  const ys = nIn === 2 ? [0, 30] : [0], yq = ys[ys.length - 1], h = nIn === 2 ? 60 : 30;
+function gateBox(sym, bubble, nIn, s, cs, tall = false) { // as CADe SIMU: inputs at x 0, box from 3 to 12 units, output at 15 units in line with the last input
+  const ys = nIn === 2 ? [0, 30] : [0], yq = tall ? 30 : ys[ys.length - 1], h = nIn === 2 || tall ? 60 : 30;
   return (<>
     {ys.map((y, i) => <L key={i} x1={0} y1={y} x2={15} y2={y} c={cs[i]} />)}
     <rect x={15} y={-15} width={45} height={h} fill={s.on ? hot : "color-mix(in srgb,var(--muted) 18%,var(--sheet))"} stroke={ink} strokeWidth={2} />
@@ -161,8 +161,10 @@ export function ExtraSym({ type, s }) {
     case "lg_xor": return gateBox("=1", false, 2, s, cs);
     case "lg_not": return gateBox("1", true, 1, s, cs);
     case "lg_sr": return (<>{gateBox("", false, 2, s, cs)}{T(19, 4, "S", 10, "start")}{T(19, 34, "R", 10, "start")}{T(56, 34, "Q", 10, "end")}</>);
-    case "lg_ton": case "lg_toff": return (<>{gateBox("", false, 1, s, cs)}
-      <polyline points={type === "lg_ton" ? "22,8 30,8 30,-6 52,-6" : "22,-6 44,-6 44,8 52,8"} fill="none" stroke={ink} strokeWidth={1.3} />{T(37, 12, (s.delay || 1) + "s", 8, "middle", 500)}</>);
+    case "lg_ton": case "lg_toff": return (<>{gateBox("", false, 1, s, cs, true)} {/* IN at the top left, Q bottom right, as in CADe SIMU */}
+      <polyline points={type === "lg_ton" ? "20,14 30,14 30,6 52,6" : "20,6 42,6 42,14 52,14"} fill="none" stroke={ink} strokeWidth={1.3} />
+      <polyline points={type === "lg_ton" ? "20,30 38,30 38,22 46,22 46,30 52,30" : "20,30 26,30 26,22 34,22 34,30 52,30"} fill="none" stroke={ink} strokeWidth={1.3} />
+      {T(8, 44, String(s.delay || 1), 9, "end", 500)}</>);
   }
   return null;
 }

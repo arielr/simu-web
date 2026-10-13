@@ -85,15 +85,15 @@ export const EXTRA_DEFS = {
   lg_xor: { group: 'logic', prefix: 'U', kind: 'logic', pins: [[0, 0], [0, 2], [5, 2]], plabels: ['1', '2', 'Q'], logic: { fn: 'xor', ins: [0, 1], out: 2 }, box: B(-4, -20, 84, 70), lab: [16, -20] },
   lg_not: { group: 'logic', prefix: 'U', kind: 'logic', pins: [[0, 0], [5, 0]], plabels: ['1', 'Q'], logic: { fn: 'not', ins: [0], out: 1 }, box: B(-4, -20, 84, 40), lab: [16, -20] },
   lg_sr: { group: 'logic', prefix: 'U', kind: 'logic', pins: [[0, 0], [0, 2], [5, 2]], plabels: ['S', 'R', 'Q'], logic: { fn: 'sr', ins: [0, 1], out: 2 }, box: B(-4, -20, 84, 70), lab: [16, -20] },
-  lg_ton: { group: 'logic', prefix: 'T', kind: 'logic', pins: [[0, 0], [5, 0]], plabels: ['IN', 'Q'], logic: { fn: 'ton', ins: [0], out: 1 }, timed: 1, box: B(-4, -20, 84, 40), lab: [16, -20] },
-  lg_toff: { group: 'logic', prefix: 'T', kind: 'logic', pins: [[0, 0], [5, 0]], plabels: ['IN', 'Q'], logic: { fn: 'toff', ins: [0], out: 1 }, timed: 1, box: B(-4, -20, 84, 40), lab: [16, -20] },
+  lg_ton: { group: 'logic', prefix: 'T', kind: 'logic', pins: [[0, 0], [5, 2]], plabels: ['IN', 'Q'], logic: { fn: 'ton', ins: [0], out: 1 }, timed: 1, box: B(-4, -20, 84, 70), lab: [16, -20] },
+  lg_toff: { group: 'logic', prefix: 'T', kind: 'logic', pins: [[0, 0], [5, 2]], plabels: ['IN', 'Q'], logic: { fn: 'toff', ins: [0], out: 1 }, timed: 1, box: B(-4, -20, 84, 70), lab: [16, -20] },
 };
 /* parts whose seconds (period, delay) or preset is set in the panel */
 export const TIMED = new Set(['flasher', 'pulse_gen', 'lg_ton', 'lg_toff']);
 
 /* CADe SIMU codes. Terminal names, label boxes and extra fields come from CADe SIMU's own records;
    terminal positions measured in CADe SIMU (VERIFIED below); the others are drawn here and not checked yet. */
-export const VERIFIED = new Set([9001, 9002, 9014, 9015, 9016, 9040, 9041, 9042, 9043, 10000, 10010, 10020, 10030, 10040, 10041, 1003, 1004, 1006, 1007, 1008, 1009, 1010, 1070, 1071, 1072, 1074, 1075, 3012, 3013, 3014, 3017, 3018, 7551, 7559, 8020, 8022]);
+export const VERIFIED = new Set([10064, 10066, 10067, 9001, 9002, 9014, 9015, 9016, 9040, 9041, 9042, 9043, 10000, 10010, 10020, 10030, 10040, 10041, 1003, 1004, 1006, 1007, 1008, 1009, 1010, 1070, 1071, 1072, 1074, 1075, 3012, 3013, 3014, 3017, 3018, 7551, 7559, 8020, 8022]);
 export const EXTRA_CAD = {
   8020: { type: 'sw_i0ii', labels: ['1', '2', '3'], box: [-18, -3, 12, 15], flags: [1,1,1,0,0,0,0,0] },
   8021: { type: 'sw_i3', labels: ['1', '2', '3', '4'], box: [-18, -3, 12, 15] },
