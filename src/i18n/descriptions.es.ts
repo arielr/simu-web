@@ -41,9 +41,9 @@ export const DESC_ES={
   motor6:['Motor trifásico con los dos extremos de cada devanado: U1 V1 W1 arriba, W2 U2 V2 abajo, y PE.','Funciona en estrella (U2, V2, W2 unidos, tres fases en U1 V1 W1) o en triángulo (cada devanado entre dos fases distintas). El panel indica cuál.'],
   motor3:['Motor trifásico con bornes U1, V1, W1 y PE.','Gira cuando recibe tres fases distintas. Intercambia dos fases para invertir el giro; el panel muestra el sentido.'],
 };
-export const ACT_DESC_ES={ind:['Sensor de proximidad inductivo. Detecta objetos metálicos sin contacto.','Haz clic para simular un objeto delante.'],
-  cap:['Sensor de proximidad capacitivo. Detecta casi cualquier material, incluidos líquidos y plástico.','Haz clic para simular un objeto delante.'],
-  mag:['Sensor magnético (reed). Detecta un imán, por ejemplo en una puerta o en el émbolo de un cilindro.','Haz clic para simular que llega el imán.'],
+export const ACT_DESC_ES={ind:['Detector de proximidad inductivo. Detecta objetos metálicos sin contacto.','Haz clic para simular un objeto delante.'],
+  cap:['Detector de proximidad capacitivo. Detecta casi cualquier material, incluidos líquidos y plástico.','Haz clic para simular un objeto delante.'],
+  mag:['Detector magnético (reed). Detecta un imán, por ejemplo en una puerta o en el émbolo de un cilindro.','Haz clic para simular que llega el imán.'],
   prs:['Presostato. Conmuta cuando la presión alcanza su valor de ajuste.','Haz clic para simular que la presión llega al valor de ajuste.'],
   vac:['Vacuostato. Conmuta cuando el vacío alcanza su valor de ajuste.','Haz clic para simular que el vacío llega al valor de ajuste.'],
   tst:['Termostato. Conmuta a una temperatura ajustada.','Haz clic para simular que la temperatura llega al valor de ajuste.'],
