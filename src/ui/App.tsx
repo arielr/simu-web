@@ -25,6 +25,12 @@ export function loadSaved(key=STORE,blank=false){try{const s=JSON.parse(localSto
 const EXAMPLES=[['cad','exCad',cadExample],['timer','exTimer',timerExample],['p3','ex3',threePhaseExample],['t6','exT6',test6Example],['t7','exT7',test7Example],['all','exAll',catalogExample],['all2','exAll2',catalog2Example],['all3','exAll3',catalog3Example],['all4','exAll4',catalog4Example],['all5','exAll5',catalog5Example]];
 
 /** one editor per tab: see shared/tabs.tsx */
+/* the part drawn on each group button, like the icons of CADe SIMU's group toolbar */
+const GROUP_ICON={supply:'L',fuse:'fuse',breaker:'mcb1',contactor:'km3',motor:'motor3',contact:'no',actuator:'pb_no',sensor:'ind_no',coil:'coil',erelay:'relay_spst',logic:'lg_and',io:'plc_m221'};
+/* groups whose part icon is too small to read at toolbar size get a simple drawing */
+const gsvg=(body)=>(<svg width="26" height="30" viewBox="0 0 26 30" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6">{body}</svg>);
+const GROUP_SVG={logic:gsvg(<><rect x="7" y="6" width="13" height="18"/><text x="13.5" y="18" fontSize="9" textAnchor="middle" fill="currentColor" stroke="none" fontWeight="700">&amp;</text><path d="M2 10h5M2 20h5M20 15h4"/></>),
+  io:gsvg(<><rect x="3" y="7" width="20" height="16"/><text x="13" y="18.5" fontSize="8" textAnchor="middle" fill="currentColor" stroke="none" fontWeight="700">IO</text></>)};
 /* parts whose drawing does not already carry its terminal names */
 const NUMBERED=new Set(['coil','tcoil','tcoil_off','tcoil_both','lamp','lampf','buzzer','bell','siren','horn','valve','motor','motor1','motor3','sw','breaker2','switch2','sw_i0ii','sw_i3','sw_cross','bar_tx','step_relay','flasher','pulse_gen','time_sw','battery']);
 const showNums=t=>{const d=DEFS[t];return !!d&&(NUMBERED.has(t)||!!d.form||!!d.fam);};
@@ -291,7 +297,7 @@ function Editor({onHome,tab}){
   const WIRE_COL={ph:'currentColor',n:'var(--neu)',pe:'var(--pe)',pos:'var(--live)',neg:'currentColor'};
   const wireItems=['ph','n','pe','pos','neg'].filter(k=>matches(query,t.kinds[k],t.wireWord)).map(k=>({key:'wire:'+k,label:`${t.wireWord} · ${t.kinds[k]}`,
     icon:<svg width="26" height="30" viewBox="0 0 26 30" aria-hidden="true"><circle cx="3" cy="24" r="2.4" fill="none" stroke="currentColor" strokeWidth="1.3"/><polyline points="3,24 3,6 23,6" fill="none" stroke={WIRE_COL[k]} strokeWidth="2.2" strokeDasharray={k==='pe'?'4 2':null}/><circle cx="23" cy="6" r="2.4" fill="none" stroke="currentColor" strokeWidth="1.3"/></svg>}));
-  const drawerGroups=[...groups.map(([g,ks])=>({id:g,title:t.groups[g],items:ks.filter(k=>!PALETTE_HIDE.has(k)&&matches(query,pname(t,k),k)).map(k=>({key:k,icon:<Icon type={k}/>,label:pname(t,k)}))})),{id:'wires',title:t.wiresGroup,items:wireItems}];
+  const drawerGroups=[...groups.map(([g,ks])=>({id:g,title:t.groups[g],icon:GROUP_SVG[g]||<Icon type={GROUP_ICON[g]}/>,sep:g==='contact'||g==='logic',items:ks.filter(k=>!PALETTE_HIDE.has(k)&&matches(query,pname(t,k),k)).map(k=>({key:k,icon:<Icon type={k}/>,label:pname(t,k)}))})),{id:'wires',title:t.wiresGroup,sep:true,icon:<svg width="26" height="30" viewBox="0 0 26 30" aria-hidden="true"><line x1="3" y1="15" x2="23" y2="15" stroke="var(--live)" strokeWidth="2.4"/></svg>,items:wireItems}];
   const bar=(<>
       <HomeButton lang={lang} onHome={onHome}/>
       <Brand title={COMMON[lang].programs.electrical}/>

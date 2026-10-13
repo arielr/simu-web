@@ -3,7 +3,7 @@
  * pieces, the parts drawer and dialogs. Each program keeps only what is
  * specific to it (canvas, inspector content, file formats).
  */
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { COMMON, Lang } from "./i18n";
 
 export type AppId = "elec" | "pneu" | "hyd";
@@ -89,12 +89,18 @@ export function BarEnd({ lang, setLang, zoom, onNew, examples, onFile }: {
 export interface DrawerItem { key: string; icon: ReactNode; label: string; title?: string }
 /** parts drawer: optional search box, grouped buttons */
 export function PartsDrawer({ lang, groups, active, onPick, disabled, query, setQuery, label }: {
-  lang: Lang; groups: { id: string; title: string; items: DrawerItem[] }[]; active?: string | null; onPick: (key: string) => void;
+  lang: Lang; groups: { id: string; title: string; items: DrawerItem[]; icon?: ReactNode; sep?: boolean }[]; active?: string | null; onPick: (key: string) => void;
   disabled?: boolean; query?: string; setQuery?: (q: string) => void; label?: string;
 }) {
+  // a row of group buttons (like CADe SIMU's toolbar): one group at a time, click again to show all; a search shows all groups
+  const [only, setOnly] = useState<string | null>(null);
+  const bar = groups.some((g) => g.icon);
+  const shown = groups.filter((g) => g.items.length && (!only || (query || "").trim() || g.id === only));
   return (<div className="drawer" aria-label={label}>
+    {bar && <div className="grpbar" role="toolbar">{groups.map((g) => (<span key={g.id} style={{ display: "contents" }}>{g.sep && <span className="gsep" />}
+      <button className={"gbtn" + (only === g.id ? " on" : "")} title={g.title} aria-label={g.title} aria-pressed={only === g.id} onClick={() => setOnly(only === g.id ? null : g.id)}>{g.icon}</button></span>))}</div>}
     {setQuery && <input className="search" type="search" placeholder={COMMON[lang].search} value={query} onInput={(e) => setQuery((e.target as HTMLInputElement).value)} />}
-    {groups.filter((g) => g.items.length).map((g) => (<div key={g.id} style={{ display: "contents" }}>
+    {shown.map((g) => (<div key={g.id} style={{ display: "contents" }}>
       <div className="grp">{g.title}</div>
       {g.items.map((it) => (<button key={it.key} className={"part" + (active === it.key ? " on" : "")} title={it.title} disabled={disabled} onClick={() => onPick(it.key)}>
         {it.icon}<span>{it.label}</span></button>))}
