@@ -173,7 +173,7 @@ export function writeCad({comps,wires,dots,order,footer,netOf,pinsOf}: WriteCadI
     let r;
     if(c.cad&&c.cad.code===code)r={...c.cad,nums:[...c.cad.nums]};
     else{const p=CAD_PARTS[code];const f=['','',...p.labels,...(p.tail||[])];while(f.length<10)f.push('');
-      const flags=p.labels.map(()=>1);while(flags.length<8)flags.push(0);
+      const flags=p.flags?[...p.flags]:p.labels.map(()=>1);while(flags.length<8)flags.push(0);
       r={id:next++,code,text:f.join('#'),nums:[...flags,0,0,0,0,...p.box,0,0,0,1,0,0,0],trail:''};
       if(p.extra)Object.entries(p.extra).forEach(([k,v])=>{r.nums[XI(r)+ +k]=v;});}
     const xi=XI(r);
