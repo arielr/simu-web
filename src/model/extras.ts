@@ -19,21 +19,21 @@ const B = (x, y, w, h) => ({ x, y, width: w, height: h });
 
 export const EXTRA_DEFS = {
   /* switches */
-  sw_i0ii: { group: 'ctrl', prefix: 'S', kind: 'contact', pins: [[0, 0], [-2, 4], [2, 4]], plabels: ['1', '2', '3'], multi: 3, posLabels: ['0', 'I', 'II'],
-    paths: [[0, 1, 'pos1'], [0, 2, 'pos2']], box: B(-44, -6, 82, 72), lab: [24, 20] },
+  sw_i0ii: { group: 'ctrl', prefix: 'S', kind: 'contact', pins: [[1, 0], [0, 4], [2, 4]], plabels: ['1', '2', '3'], multi: 3, posLabels: ['0', 'I', 'II'],
+    paths: [[0, 1, 'pos1'], [0, 2, 'pos2']], box: B(-38, -6, 82, 72), lab: [40, 20] },
   sw_i3: { group: 'ctrl', prefix: 'S', kind: 'contact', pins: [[0, 0], [-2, 4], [0, 4], [2, 4]], plabels: ['1', '2', '3', '4'], multi: 3, posLabels: ['I', 'II', 'III'],
     paths: [[0, 1, 'pos0'], [0, 2, 'pos1'], [0, 3, 'pos2']], box: B(-44, -6, 82, 72), lab: [24, 20] },
-  sw_cross: { group: 'ctrl', prefix: 'S', kind: 'contact', pins: [[0, 0], [0, 4], [2, 0], [2, 4]], plabels: ['1', '2', '3', '4'], multi: 2, posLabels: ['=', '×'],
-    paths: [[0, 1, 'pos0'], [2, 3, 'pos0'], [0, 3, 'pos1'], [2, 1, 'pos1']], box: B(-30, -6, 76, 72), lab: [40, 34] },
+  sw_cross: { group: 'ctrl', prefix: 'S', kind: 'contact', pins: [[0, 0], [2, 0], [0, 4], [2, 4]], plabels: ['1', '2', '3', '4'], multi: 2, posLabels: ['×', '='],
+    paths: [[0, 3, 'pos0'], [1, 2, 'pos0'], [0, 2, 'pos1'], [1, 3, 'pos1']], box: B(-30, -6, 76, 72), lab: [40, 34] },
 
   /* relays with their own contact */
-  ssr_dc: { group: 'relay', prefix: 'K', kind: 'load', pins: [[0, 0], [0, 4], [3, 0], [3, 4]], plabels: ['A1', 'A2', '1', '2'], load: [0, 1], paths: [[2, 3, 'self']], box: B(-30, -4, 86, 68), lab: [52, 34] },
-  ssr_ac: { group: 'relay', prefix: 'K', kind: 'load', pins: [[0, 0], [0, 4], [3, 0], [3, 4]], plabels: ['A1', 'A2', '1', '2'], load: [0, 1], paths: [[2, 3, 'self']], box: B(-30, -4, 86, 68), lab: [52, 34] },
-  ssr3: { group: 'power', prefix: 'K', kind: 'load', pins: [[0, 0], [2, 0], [4, 0], [0, 4], [2, 4], [4, 4], [7, 0], [7, 4]], plabels: ['1', '3', '5', '2', '4', '6', 'A1', 'A2'],
-    load: [6, 7], paths: [[0, 3, 'self'], [1, 4, 'self'], [2, 5, 'self']], box: B(-14, -4, 136, 68), lab: [118, 34] },
+  ssr_dc: { group: 'relay', prefix: 'K', kind: 'load', pins: [[0, 0], [2, 0], [0, 4], [2, 4]], plabels: ['A1', 'A2', '1', '2'], load: [0, 1], paths: [[2, 3, 'self']], box: B(-12, -4, 60, 68), lab: [44, 34] },
+  ssr_ac: { group: 'relay', prefix: 'K', kind: 'load', pins: [[0, 0], [2, 0], [0, 4], [2, 4]], plabels: ['A1', 'A2', '1', '2'], load: [0, 1], paths: [[2, 3, 'self']], box: B(-12, -4, 60, 68), lab: [44, 34] },
+  ssr3: { group: 'power', prefix: 'K', kind: 'load', pins: [[0, 0], [2, 0], [4, 0], [0, 4], [2, 4], [4, 4], [6, 0], [6, 4]], plabels: ['1', '3', '5', '2', '4', '6', 'A1', 'A2'],
+    load: [6, 7], paths: [[0, 3, 'self'], [1, 4, 'self'], [2, 5, 'self']], box: B(-14, -4, 122, 68), lab: [104, 34] },
   relay_spst: { group: 'relay', prefix: 'K', kind: 'load', pins: [[0, 0], [0, 4], [3, 0], [3, 4]], plabels: ['A1', 'A2', '13', '14'], load: [0, 1], paths: [[2, 3, 'self']], box: B(-30, -4, 86, 68), lab: [52, 34] },
-  relay_spdt: { group: 'relay', prefix: 'K', kind: 'load', pins: [[0, 0], [0, 4], [3, 0], [2, 4], [4, 4]], plabels: ['A1', 'A2', '11', '12', '14'], load: [0, 1],
-    paths: [[2, 3, 'selfnc'], [2, 4, 'self']], box: B(-30, -4, 108, 68), lab: [70, 34] },
+  relay_spdt: { group: 'relay', prefix: 'K', kind: 'load', pins: [[0, 0], [0, 4], [4, 4], [3, 0], [5, 0]], plabels: ['A1', 'A2', '11', '12', '14'], load: [0, 1],
+    paths: [[2, 3, 'selfnc'], [2, 4, 'self']], box: B(-30, -4, 118, 68), lab: [84, 34] },
 
   /* coils that drive contacts with the same tag */
   step_relay: { group: 'relay', prefix: 'KA', kind: 'load', pins: [[0, 0], [0, 4]], plabels: ['A1', 'A2'], load: [0, 1], drive: 'step', box: B(-36, -4, 72, 68), lab: [22, 34] },
@@ -63,16 +63,16 @@ export const EXTRA_DEFS = {
   brake: { group: 'load', prefix: 'Fr', kind: 'load', pins: [[0, 0], [2, 0], [4, 0]], plabels: ['U1', 'V1', 'PE'], load: [0, 1], box: B(-14, -4, 88, 72), lab: [72, 40] },
 
   /* supplies */
-  psu_v: { group: 'supply', prefix: 'V', kind: 'psu2', pins: [[0, 0], [2, 0], [0, 6], [2, 6], [4, 0]], plabels: ['1', '2', '3', '4', 'PE'], pwr: [0, 1], condSrc: { 2: 'P', 3: 'M' },
-    box: B(-14, -4, 88, 98), lab: [76, 46] },
-  psu_v3: { group: 'supply', prefix: 'V', kind: 'psu2', pins: [[0, 0], [2, 0], [4, 0], [0, 6], [2, 6], [6, 0]], plabels: ['1', '2', '3', '4', '5', 'PE'], pwr: [0, 1], condSrc: { 3: 'P', 4: 'M' },
-    box: B(-14, -4, 118, 98), lab: [106, 46] },
-  rectifier: { group: 'supply', prefix: 'V', kind: 'psu2', pins: [[0, 0], [2, 0], [0, 6], [2, 6]], plabels: ['1', '2', '3', '4'], pwr: [0, 1], condSrc: { 2: 'P', 3: 'M' },
-    box: B(-14, -4, 72, 98), lab: [62, 46] },
-  trafo: { group: 'supply', prefix: 'T', kind: 'psu2', pins: [[0, 0], [2, 0], [0, 6], [2, 6]], plabels: ['1', '2', '3', '4'], pwr: [0, 1], condSrc: { 2: '~a', 3: '~b' },
-    box: B(-14, -4, 72, 98), lab: [62, 46] },
-  trafo3: { group: 'supply', prefix: 'T', kind: 'psu2', pins: [[0, 0], [2, 0], [4, 0], [0, 6], [2, 6], [4, 6]], plabels: ['1', '2', '3', '4', '5', '6'], pwr: [0, 1],
-    condSrc: { 3: 'L1', 4: 'L2', 5: 'L3' }, box: B(-14, -4, 102, 98), lab: [92, 46] },
+  psu_v: { group: 'supply', prefix: 'V', kind: 'psu2', pins: [[0, 0], [2, 0], [0, 6], [2, 6], [4, 3]], plabels: ['1', '2', '3', '4', 'PE'], pwr: [0, 1], condSrc: { 2: 'P', 3: 'M' },
+    box: B(-14, -4, 82, 98), lab: [-40, 46] },
+  psu_v3: { group: 'supply', prefix: 'V', kind: 'psu2', pins: [[0, 0], [2, 0], [4, 0], [1, 6], [3, 6], [6, 3]], plabels: ['1', '2', '3', '4', '5', 'PE'], pwr: [0, 1], condSrc: { 3: 'P', 4: 'M' },
+    box: B(-14, -4, 112, 98), lab: [-40, 46] },
+  rectifier: { group: 'supply', prefix: 'V', kind: 'psu2', pins: [[-3, 3], [3, 3], [0, 0], [0, 6]], plabels: ['1', '2', '3', '4'], pwr: [0, 1], condSrc: { 2: 'P', 3: 'M' },
+    box: B(-50, -4, 100, 98), lab: [8, 10] },
+  trafo: { group: 'supply', prefix: 'T', kind: 'psu2', pins: [[0, 0], [3, 0], [0, 5], [3, 5]], plabels: ['1', '2', '3', '4'], pwr: [0, 1], condSrc: { 2: '~a', 3: '~b' },
+    box: B(-10, -4, 66, 84), lab: [-34, 40] },
+  trafo3: { group: 'supply', prefix: 'T', kind: 'psu2', pins: [[0, 0], [2, 0], [4, 0], [0, 5], [2, 5], [4, 5]], plabels: ['1', '2', '3', '4', '5', '6'], pwr: [0, 1],
+    condSrc: { 3: 'L1', 4: 'L2', 5: 'L3' }, box: B(-10, -4, 82, 84), lab: [-34, 40] },
 
   /* light barrier emitter (its receivers are the bar_no / bar_nc contacts with the same tag) */
   bar_tx: { group: 'sensor', prefix: 'B', kind: 'load', pins: [[0, 0], [0, 4]], plabels: ['1', '2'], load: [0, 1], drive: 'beam', box: B(-40, -4, 76, 68), lab: [22, 34] },
@@ -92,7 +92,8 @@ export const EXTRA_DEFS = {
 export const TIMED = new Set(['flasher', 'pulse_gen', 'lg_ton', 'lg_toff']);
 
 /* CADe SIMU codes. Terminal names, label boxes and extra fields come from CADe SIMU's own records;
-   terminal positions are drawn here and not yet checked against wired CADe SIMU files. */
+   terminal positions measured in CADe SIMU (VERIFIED below); the others are drawn here and not checked yet. */
+export const VERIFIED = new Set([1070, 1071, 1072, 1074, 1075, 3012, 3013, 3014, 3017, 3018, 7551, 7559, 8020, 8022]);
 export const EXTRA_CAD = {
   8020: { type: 'sw_i0ii', labels: ['1', '2', '3'], box: [-18, -3, 12, 15], flags: [1,1,1,0,0,0,0,0] },
   8021: { type: 'sw_i3', labels: ['1', '2', '3', '4'], box: [-18, -3, 12, 15] },

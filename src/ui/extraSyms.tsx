@@ -34,16 +34,17 @@ function motor(s, cs, opts) {
   </>);
 }
 /* rotary switch: common at (0,0), outputs at xs on y=60; pos = index of the closed output (-1: none) */
-function rotary(xs, closedIdx, labels, cs, posLabelIdx) {
-  const tip = closedIdx >= 0 ? [xs[closedIdx], 40] : [0, 46];
+function rotary(cx, xs, closedIdx, labels, cs, posLabelIdx) {
+  const tip = closedIdx >= 0 ? [xs[closedIdx], 40] : [cx, 46];
+  const mx = Math.min(...xs, cx);
   return (<>
-    <L x1={0} y1={0} x2={0} y2={20} c={cs[0]} />
+    <L x1={cx} y1={0} x2={cx} y2={20} c={cs[0]} />
     {xs.map((x, i) => <g key={i}><L x1={x} y1={40} x2={x} y2={60} c={cs[i + 1]} /><circle cx={x} cy={40} r={2.6} fill="var(--sheet)" stroke={ink} strokeWidth={1.4} />
-      {T(x + (x < 0 ? -8 : x > 0 ? 8 : 0), x === 0 ? 34 : 38, labels[i + posLabelIdx], 9, "middle", 600, "var(--muted)")}</g>)}
-    <circle cx={0} cy={20} r={2.6} fill={ink} />
-    <L x1={0} y1={20} x2={tip[0] * 0.92} y2={tip[1] - 2} c={closedIdx >= 0 ? cs[0] : null} />
-    <L x1={-6} y1={30} x2={-38} y2={30} d="3 3" w={1.4} />
-    <polyline points="-38,24 -42,24 -42,36" fill="none" stroke={ink} strokeWidth={1.8} /><L x1={-42} y1={36} x2={-46} y2={32} w={1.4} />
+      {T(x + (x < cx ? -8 : x > cx ? 8 : 0), x === cx ? 34 : 38, labels[i + posLabelIdx], 9, "middle", 600, "var(--muted)")}</g>)}
+    <circle cx={cx} cy={20} r={2.6} fill={ink} />
+    <L x1={cx} y1={20} x2={cx + (tip[0] - cx) * 0.92} y2={tip[1] - 2} c={closedIdx >= 0 ? cs[0] : null} />
+    <L x1={cx - 6} y1={30} x2={mx - 18} y2={30} d="3 3" w={1.4} />
+    <polyline points={`${mx - 18},24 ${mx - 22},24 ${mx - 22},36`} fill="none" stroke={ink} strokeWidth={1.8} /><L x1={mx - 22} y1={36} x2={mx - 26} y2={32} w={1.4} />
   </>);
 }
 function gateBox(sym, bubble, nIn, s, cs) {
@@ -63,31 +64,34 @@ export function ExtraSym({ type, s }) {
   if (!d || !(d.multi || d.drive || d.logic || d.dahl || d.kind === "psu2" || d.kind === "mon" || EXTRA_TYPES.has(type))) return null;
   const cs = s.cs || [], on = !!s.on, pos = +s.pos || 0;
   switch (type) {
-    case "sw_i0ii": return rotary([-30, 30], pos === 0 ? -1 : pos - 1, d.posLabels, cs, 1);
-    case "sw_i3": return rotary([-30, 0, 30], pos, d.posLabels, cs, 0);
-    case "sw_cross": {
-      const x = pos === 1;
+    case "sw_i0ii": return rotary(15, [0, 30], pos === 0 ? -1 : pos - 1, d.posLabels, cs, 1);
+    case "sw_i3": return rotary(0, [-30, 0, 30], pos, d.posLabels, cs, 0);
+    case "sw_cross": { // 1 2 on top, 3 4 below; rest: crossed (1–4, 2–3), switched: straight (1–3, 2–4)
+      const st = pos === 1;
       return (<>
-        <L x1={0} y1={0} x2={0} y2={20} c={cs[0]} /><L x1={30} y1={0} x2={30} y2={20} c={cs[2]} />
-        <L x1={0} y1={40} x2={0} y2={60} c={cs[1]} /><L x1={30} y1={40} x2={30} y2={60} c={cs[3]} />
-        {x ? <><L x1={0} y1={20} x2={30} y2={40} /><L x1={30} y1={20} x2={0} y2={40} /></> : <><L x1={0} y1={20} x2={0} y2={40} /><L x1={30} y1={20} x2={30} y2={40} /></>}
+        <L x1={0} y1={0} x2={0} y2={20} c={cs[0]} /><L x1={30} y1={0} x2={30} y2={20} c={cs[1]} />
+        <L x1={0} y1={40} x2={0} y2={60} c={cs[2]} /><L x1={30} y1={40} x2={30} y2={60} c={cs[3]} />
+        {st ? <><L x1={0} y1={20} x2={0} y2={40} /><L x1={30} y1={20} x2={30} y2={40} /></> : <><L x1={0} y1={20} x2={30} y2={40} /><L x1={30} y1={20} x2={0} y2={40} /></>}
         <L x1={-4} y1={30} x2={-22} y2={30} d="3 3" w={1.4} /><polyline points="-22,24 -26,24 -26,36" fill="none" stroke={ink} strokeWidth={1.8} />
-        {T(15, -4, x ? "×" : "=", 10, "middle", 700, "var(--muted)")}
+        {T(15, -4, st ? "=" : "×", 10, "middle", 700, "var(--muted)")}
       </>);
     }
-    case "ssr_dc": case "ssr_ac": case "relay_spst": case "relay_spdt": {
-      const ssr = type.startsWith("ssr");
-      const inner = ssr ? <>{T(0, 34, type === "ssr_dc" ? "=" : "~", 13)}<path d="M -8 24 l 5 4 l -5 4" fill="none" stroke={ink} strokeWidth={1.2} /></> : null;
-      return (<>{coil(0, on, cs[0], cs[1], inner)}
-        <L x1={12} y1={30} x2={type === "relay_spdt" ? 34 : 40} y2={30} d="3 3" w={1.4} />
-        {type === "relay_spdt"
-          ? (<><L x1={45} y1={0} x2={45} y2={20} c={cs[2]} /><L x1={30} y1={40} x2={30} y2={60} c={cs[3]} /><L x1={60} y1={40} x2={60} y2={60} c={cs[4]} />
-            <L x1={45} y1={20} x2={on ? 58 : 32} y2={40} c={cs[2]} /></>)
-          : no(45, on, cs[2], cs[3], "c")}
-        {pinLab(3, 10, "A1")}{pinLab(3, 56, "A2")}</>);
+    case "ssr_dc": case "ssr_ac": { // A1 A2 on top, output 1 2 below (as in CADe SIMU)
+      const blade = on ? <L x1={9} y1={42} x2={21} y2={42} /> : <L x1={9} y1={42} x2={20} y2={35} />;
+      return (<><L x1={0} y1={0} x2={0} y2={14} c={cs[0]} /><L x1={30} y1={0} x2={30} y2={14} c={cs[1]} />
+        <L x1={0} y1={46} x2={0} y2={60} c={cs[2]} /><L x1={30} y1={46} x2={30} y2={60} c={cs[3]} />
+        {box(-6, 14, 42, 32, on)}{T(15, 28, "SSR " + (type === "ssr_dc" ? "=" : "~"), 8)}
+        <polyline points="0,46 0,42 9,42" fill="none" stroke={ink} strokeWidth={1.4} /><polyline points="21,42 30,42 30,46" fill="none" stroke={ink} strokeWidth={1.4} />{blade}
+        {pinLab(3, 10, "A1")}{pinLab(33, 10, "A2")}{pinLab(3, 58, "1")}{pinLab(33, 58, "2")}</>);
     }
+    case "relay_spst": return (<>{coil(0, on, cs[0], cs[1])}<L x1={12} y1={30} x2={40} y2={30} d="3 3" w={1.4} />{no(45, on, cs[2], cs[3], "c")}
+      {pinLab(3, 10, "A1")}{pinLab(3, 56, "A2")}{pinLab(48, 10, "13")}{pinLab(48, 56, "14")}</>);
+    case "relay_spdt": return (<>{coil(0, on, cs[0], cs[1])}<L x1={12} y1={30} x2={48} y2={30} d="3 3" w={1.4} />
+      <L x1={45} y1={0} x2={45} y2={20} c={cs[3]} /><L x1={75} y1={0} x2={75} y2={20} c={cs[4]} /><L x1={60} y1={40} x2={60} y2={60} c={cs[2]} />
+      <L x1={45} y1={20} x2={51} y2={20} /><L x1={60} y1={40} x2={on ? 74 : 47} y2={on ? 21 : 22} c={cs[2]} />
+      {pinLab(3, 10, "A1")}{pinLab(3, 56, "A2")}{pinLab(48, 10, "12")}{pinLab(78, 10, "14")}{pinLab(63, 56, "11")}</>);
     case "ssr3": return (<>{[0, 30, 60].map((x, i) => no(x, on, cs[i], cs[i + 3], i))}
-      <L x1={-6} y1={30} x2={92} y2={30} d="3 3" w={1.2} />{coil(105, on, cs[6], cs[7], T(105, 34, "SSR", 8))}</>);
+      <L x1={-6} y1={30} x2={78} y2={30} d="3 3" w={1.2} />{coil(90, on, cs[6], cs[7], T(90, 34, "SSR", 8))}</>);
     case "step_relay": return coil(0, on, cs[0], cs[1], <><L x1={-12} y1={26} x2={12} y2={26} w={1.2} /><path d="M -6 36 l 6 -6 l 6 6" fill="none" stroke={ink} strokeWidth={1.4} /></>);
     case "bistable": return (<>
       <L x1={0} y1={0} x2={0} y2={20} c={cs[0]} /><L x1={30} y1={0} x2={30} y2={20} c={cs[1]} /><L x1={0} y1={40} x2={0} y2={60} c={cs[2]} />
@@ -118,18 +122,27 @@ export function ExtraSym({ type, s }) {
     case "motor_dcsep": return (<>{motor(s, cs, { top: [[0, 0], [60, 1]], bot: [[0, 3], [60, 4]], pe: 90, cy: 60, sub: "=", labels: [[0, 10, "A1"], [60, 10, "A2"], [0, 116, "F1"], [60, 116, "F2"]] })}</>);
     case "brake": return (<><L x1={0} y1={0} x2={0} y2={24} c={cs[0]} /><L x1={30} y1={0} x2={30} y2={24} c={cs[1]} />
       <polyline points="60,0 60,40 44,40" fill="none" stroke="var(--pe)" strokeWidth="2" />{box(-10, 24, 54, 32, on)}{T(17, 45, "FR", 13, "middle", 700)}</>);
-    case "psu_v": case "psu_v3": case "rectifier": case "trafo": case "trafo3": {
-      const nIn = type === "psu_v3" || type === "trafo3" ? 3 : 2, nOut = type === "trafo3" ? 3 : 2, w = Math.max(nIn, nOut) * 30 + 6;
-      const tr = type.startsWith("trafo");
+    case "psu_v": case "psu_v3": { // in 1 2 (3) on top, + − below, PE at the right side (as in CADe SIMU)
+      const three = type === "psu_v3", outs = three ? [15, 45] : [0, 30], w = three ? 88 : 58, pe = three ? 90 : 60, nIn = three ? 3 : 2;
       return (<>{[...Array(nIn)].map((_, i) => <L key={"i" + i} x1={i * 30} y1={0} x2={i * 30} y2={18} c={cs[i]} />)}
-        {[...Array(nOut)].map((_, i) => <L key={"o" + i} x1={i * 30} y1={72} x2={i * 30} y2={90} c={cs[nIn + i]} />)}
-        {d.pins.length > nIn + nOut && <polyline points={`${nIn * 30},0 ${nIn * 30},12`} fill="none" stroke="var(--pe)" strokeWidth="2" />}
-        {tr ? (<><circle cx={w / 2 - 18} cy={36} r={18} fill={on ? hot : "var(--sheet)"} stroke={ink} strokeWidth={2} /><circle cx={w / 2 - 18} cy={54} r={18} fill="none" stroke={ink} strokeWidth={2} />
-          <L x1={-12} y1={18} x2={w - 24} y2={18} w={1.2} /><L x1={-12} y1={72} x2={w - 24} y2={72} w={1.2} /></>)
-          : (<>{box(-12, 18, w, 54, on)}<L x1={-12} y1={72} x2={w - 12} y2={18} w={1.2} />{T(4, 38, "~", 15)}{T(w - 28, 64, "=", 15)}
-            {type !== "rectifier" && T(w - 30, 32, "PS", 8, "middle", 500, "var(--muted)")}</>)}
-        {d.plabels.map((t, i) => { const out = i >= nIn && i < nIn + nOut; const k = out ? i - nIn : i; if (t === "PE") return null;
-          return <g key={i}>{pinLab(k * 30 + 3, out ? 86 : 10, out && type !== "trafo" && type !== "trafo3" ? (k === 0 ? "+" : "−") : t)}</g>; })}</>);
+        {outs.map((x, i) => <L key={"o" + i} x1={x} y1={72} x2={x} y2={90} c={cs[nIn + i]} />)}
+        <L x1={w - 10} y1={45} x2={pe} y2={45} c="var(--pe)" />
+        {box(-10, 18, w, 54, on)}<L x1={-10} y1={72} x2={w - 10} y2={18} w={1.2} />{T(4, 38, "~", 15)}{T(w - 26, 64, "=", 15)}
+        {[...Array(nIn)].map((_, i) => <g key={"l" + i}>{pinLab(i * 30 + 3, 10, String(i + 1))}</g>)}{pinLab(outs[0] + 3, 86, "+")}{pinLab(outs[1] + 3, 86, "−")}{pinLab(pe - 12, 40, "PE")}</>);
+    }
+    case "rectifier": // 3 (+) on top, 4 (−) below, AC 1 and 2 left and right
+      return (<><L x1={0} y1={0} x2={0} y2={15} c={cs[2]} /><L x1={0} y1={75} x2={0} y2={90} c={cs[3]} />
+        <L x1={-45} y1={45} x2={-30} y2={45} c={cs[0]} /><L x1={30} y1={45} x2={45} y2={45} c={cs[1]} />
+        <path d="M 0 15 L 30 45 L 0 75 L -30 45 Z" fill={on ? hot : "var(--sheet)"} stroke={ink} strokeWidth={2} />
+        <path d="M -8 52 L 8 52 L 0 38 Z" fill={ink} /><L x1={-8} y1={37} x2={8} y2={37} w={2} /><L x1={0} y1={30} x2={0} y2={60} w={1.2} />
+        {pinLab(4, 10, "+")}{pinLab(4, 88, "−")}{pinLab(-44, 40, "1")}{pinLab(36, 40, "2")}</>);
+    case "trafo": case "trafo3": { // primary on top, secondary 5 grid steps below; windings drawn as bumps on an iron core
+      const xs = type === "trafo" ? [0, 45] : [0, 30, 60], n = xs.length;
+      const bumps = (y, x0, x1) => { const k = 4, w = (x1 - x0) / k; let d = `M ${x0} ${y}`; for (let i = 0; i < k; i++) d += ` a ${w / 2} ${w / 2} 0 0 ${y < 37 ? 0 : 1} ${w} 0`; return <path d={d} fill="none" stroke={ink} strokeWidth={1.8} />; };
+      return (<>{xs.map((x, i) => <L key={"p" + i} x1={x} y1={0} x2={x} y2={26} c={cs[i]} />)}{xs.map((x, i) => <L key={"s" + i} x1={x} y1={49} x2={x} y2={75} c={cs[n + i]} />)}
+        {bumps(26, 0, xs[n - 1])}{bumps(49, 0, xs[n - 1])}
+        <L x1={-4} y1={35} x2={xs[n - 1] + 4} y2={35} w={2.4} c={on ? "var(--accent)" : null} /><L x1={-4} y1={40} x2={xs[n - 1] + 4} y2={40} w={2.4} c={on ? "var(--accent)" : null} />
+        {d.plabels.map((t, i) => <g key={t}>{pinLab(xs[i % n] + 3, i < n ? 10 : 72, t)}</g>)}</>);
     }
     case "bar_tx": return (<><L x1={0} y1={0} x2={0} y2={22} c={cs[0]} /><L x1={0} y1={38} x2={0} y2={60} c={cs[1]} />{box(-8, 22, 16, 16, on)}
       <path d="M 10 26 l 12 0 m -3 -3 l 3 3 l -3 3 M 10 34 l 12 0 m -3 -3 l 3 3 l -3 3" fill="none" stroke={on ? "var(--accent)" : ink} strokeWidth={1.4} /></>);
@@ -145,4 +158,4 @@ export function ExtraSym({ type, s }) {
   }
   return null;
 }
-const EXTRA_TYPES = new Set(["ssr_dc", "ssr_ac", "ssr3", "relay_spst", "relay_spdt", "motor_rotor", "motor_3on1", "motor1b", "motor_dcpm", "motor_dcsep", "brake", "bar_tx"]);
+const EXTRA_TYPES = new Set(["ssr_dc", "ssr_ac", "ssr3", "relay_spst", "relay_spdt", "rectifier", "trafo", "trafo3", "psu_v", "psu_v3", "motor_rotor", "motor_3on1", "motor1b", "motor_dcpm", "motor_dcsep", "brake", "bar_tx"]);
