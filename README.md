@@ -196,6 +196,20 @@ Versions up to v6 were a single HTML file using `htm`. `tools/migrate.py` conver
 TSX modules mechanically; most modules still start with `// @ts-nocheck` and are typed
 gradually.
 
+## Pneumatic / hydraulic editor: component parameters
+
+Selecting a part shows its settings as editable fields, after the property dialogs of FluidSIM
+(taken from its resource file, `fl_sim_p.res`): throttle opening (0–100 %), set pressure of
+pressure valves and switches, check valve opening pressure, delay time of timer relays, counter
+value, pump/compressor pressure and delivery, time switch on/off times, lamp signal colour, and
+the label (Marke) that links switches and contacts. The values keep FluidSIM's property names
+(`LEVEL`, `P_SOLL`, `P_V`, `DELAY_TIME`, `N`, `sig_color` …; see `src/fluid/params.ts`) and are
+clamped to the dialog ranges. Other stored properties are listed read-only under "Parameters".
+
+In the simulation a throttle at 0 % shuts its line, and a partly closed one slows the cylinders
+it feeds or exhausts in proportion. A one-way flow control slows only the side the cylinder
+exhausts through (meter-out, the usual fitting). Lamps light in their signal colour.
+
 ## Pneumatic / hydraulic simulation (`src/fluid/sim.ts`)
 
 - **Valves** are read from their own drawing: one box per switching position, the box

@@ -18,6 +18,7 @@
  */
 import type { FluidPart } from "./catalog";
 import type { FComp, Tube } from "./model";
+import { THROTTLE1, THROTTLE2 } from "./params";
 import { partOf } from "./model";
 import { physOf, marksOf } from "./cylGen";
 import type { CylMark } from "./cylGen";
@@ -310,7 +311,7 @@ export function solveFluid(comps: FComp[], tubes: Tube[], st: SimState, solenoid
     for (const t of tubes) u(key(t.a.c, t.a.p), key(t.b.c, t.b.p));
     for (const { c } of parts) {
       const r = roles.get(c.id)!;
-      if (r.kind === "pass") u(key(c.id, r.ports[0]), key(c.id, r.ports[1]));
+      if (r.kind === "pass" && !shut(partOf(c)!)) u(key(c.id, r.ports[0]), key(c.id, r.ports[1]));
       if (r.kind === "junction") for (let k = 1; k < r.ports.length; k++) u(key(c.id, r.ports[0]), key(c.id, r.ports[k]));
       if (r.kind === "shutoff" && !st.closed[c.id] && r.ports.length === 2) u(key(c.id, r.ports[0]), key(c.id, r.ports[1]));
       if (r.kind === "valve") for (const g of r.v.conn[pos[c.id]] || []) for (let k = 1; k < g.length; k++) u(key(c.id, g[0]), key(c.id, g[k]));
@@ -381,7 +382,46 @@ export function solveFluid(comps: FComp[], tubes: Tube[], st: SimState, solenoid
  * of the remaining pressure margin (flow through the valve); hydraulic speed is the pump
  * flow (minus internal leakage) over the area.
  */
+/** a throttle turned fully closed (opening 0 %) passes nothing */
+const shut = (p: FluidPart) => (THROTTLE1.test(p.cls) || THROTTLE2.test(p.cls)) && parseFloat(p.props.LEVEL ?? "100") <= 0;
+
+/**
+ * Speed factor of each cylinder from the throttles it flows through (opening %).
+ * A two-way throttle slows both directions; a one-way flow control slows the side the
+ * cylinder exhausts through (meter-out, the usual way it is fitted), the check valve lets
+ * the supply side through freely.
+ */
+export function throttleFactor(comps: FComp[], res: SimResult): Record<string, number> {
+  const two = new Map<number, number>(), one = new Map<number, number>();
+  for (const c of comps) {
+    const p = partOf(c); if (!p) continue;
+    const t2 = THROTTLE2.test(p.cls), t1 = THROTTLE1.test(p.cls);
+    if (!t1 && !t2) continue;
+    const lv = Math.max(0, Math.min(100, parseFloat(p.props.LEVEL ?? "100"))) / 100;
+    if (!(lv < 1)) continue;
+    const r = roleOf(p); if (r.kind !== "pass") continue;
+    const n = res.netOf.get(key(c.id, r.ports[0])); if (n === undefined) continue;
+    const m = t2 ? two : one;
+    m.set(n, Math.min(m.get(n) ?? 1, lv));
+  }
+  const out: Record<string, number> = {};
+  for (const c of comps) {
+    const p = partOf(c); if (!p) continue;
+    const r = roleOf(p); if (r.kind !== "cyl") continue;
+    const d = res.dir[c.id] || 0;
+    const net = (i: number | null) => (i !== null && i >= 0 ? res.netOf.get(key(c.id, i)) : undefined);
+    const na = net(r.a), nb = net(r.b);
+    let f = 1;
+    for (const n of [na, nb]) if (n !== undefined && two.has(n)) f = Math.min(f, two.get(n)!);
+    const exhaust = d > 0 ? nb : d < 0 ? na : undefined;
+    if (exhaust !== undefined && one.has(exhaust)) f = Math.min(f, one.get(exhaust)!);
+    out[c.id] = f;
+  }
+  return out;
+}
+
 export function moveCylinders(comps: FComp[], st: SimState, res: SimResult, dt: number, hydraulic: boolean) {
+  const thr = throttleFactor(comps, res);
   const ext = { ...st.ext }, vel: Record<string, number> = { ...(st.vel || {}) }, force: Record<string, number> = {};
   let moving = false;
   // supply: pressure (bar) and, for hydraulics, flow (l/min)
@@ -418,6 +458,7 @@ export function moveCylinders(comps: FComp[], st: SimState, res: SimResult, dt: 
         const driven = d > 0 ? pa : pb;
         if (hydraulic && driven) target = Math.max(0, (lpm - ph.leak * bar / 10) / 60000) / A;
         else target = (hydraulic ? lpm / 60000 : QP) / A * Math.sqrt(Math.min(1, Fnet / Fref));
+        target *= Math.max(0.02, thr[c.id] ?? 1);
         const left = d > 0 ? ph.stroke * (1 - e) : ph.stroke * e;
         if (ph.damping && left < Math.min(15, ph.stroke * 0.2)) target *= ph.dampAdj ? 0.4 : 0.3;
       }

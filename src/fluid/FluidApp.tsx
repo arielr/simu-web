@@ -16,6 +16,8 @@ import { ValveDialog } from "./ValveDialog";
 import { buildValve, configOf, defaultConfig, portRoles, ValveConfig } from "./valveGen";
 import { solveElectric, stepElectric, emptyElec, eKind, ElecState } from "./elec";
 import { FLUID_EXAMPLES } from "../examples/fluid";
+import { PARAMS, paramName, paramUnit, cleanParam } from "./params";
+import type { Lang } from "../shared/i18n";
 import {
   FComp, FluidDoc, FluidDomain, PortRef, Tube, FLUID_KIND, MM, SNAP, PORT_R,
   partOf, portsOf, portPos, rotSize, rotTransform, routeTube, isFluidPart, unrotPt,
@@ -332,6 +334,13 @@ function FluidEditor({ domain, onHome, tab }: { domain: FluidDomain; onHome?: ()
     }).filter((tb) => tb.a.p >= 0 && tb.b.p >= 0 && tb.a.c !== dropRule && tb.b.c !== dropRule));
     setCdlg(null);
   };
+  /** change one property of a part (FluidSIM's property dialog) */
+  const setProp = (id: string, k: string, v: string) => {
+    const c = comps.find((x) => x.id === id), part = c && partOf(c);
+    if (!part || part.props[k] === v) return;
+    push();
+    setComps((cs) => cs.map((x) => (x.id === id ? { ...x, part: { ...part, props: { ...part.props, [k]: v } } } : x)));
+  };
   const applyValve = (id: string, cfg: ValveConfig) => {
     const c = comps.find((k) => k.id === id); if (!c) return;
     const old = partOf(c)!, part = buildValve(cfg, domain === "hyd");
@@ -503,8 +512,10 @@ function FluidEditor({ domain, onHome, tab }: { domain: FluidDomain; onHome?: ()
               {isCyl(selComp) && <button className="go" onClick={() => openCyl(selComp.id)}>⚙ {L3(lang, "Configure cylinder", "הגדר בוכנה", "Configurar cilindro")}</button>}</div>
             <div className="field"><label>{t.ports}</label>
               <div className="hint">{portsOf(selComp).map((q, i) => ({ q, i })).filter(({ q }) => q.kind === fluidKind).map(({ q, i }, n) => <span key={i} className="chip" style={{ marginInlineEnd: 4 }}>{q.label || n + 1}{used.has(selComp.id + ":" + i) ? "" : " · " + t.openPort}</span>)}</div></div>
-            {Object.keys(p.props).length > 0 && (<div className="field"><label>{t.props}</label>
-              <table className="props"><tbody>{Object.entries(p.props).filter(([k]) => k !== "description").slice(0, 14).map(([k, v]) => <tr key={k}><td className="mono">{k}</td><td className="mono">{String(v).slice(0, 24)}</td></tr>)}</tbody></table></div>)}
+            {Object.keys(PARAMS).filter((k) => k in p.props && !(isCyl(selComp) && k !== "label")).map((k) => (
+              <ParamField key={selComp.id + k} k={k} value={p.props[k]} lang={lang} hyd={domain === "hyd"} onSet={(v) => setProp(selComp.id, k, v)} />))}
+            {Object.keys(p.props).some((k) => !PARAMS[k] && k !== "description") && (<details className="field"><summary className="hint">{t.props}</summary>
+              <table className="props"><tbody>{Object.entries(p.props).filter(([k]) => !PARAMS[k] && k !== "description").slice(0, 30).map(([k, v]) => <tr key={k}><td className="mono">{k}</td><td className="mono">{String(v).slice(0, 24)}</td></tr>)}</tbody></table></details>)}
           </>);
         })() : selTube ? (<>
           <h3>{t.tubeSel}</h3>
@@ -530,4 +541,18 @@ function FluidEditor({ domain, onHome, tab }: { domain: FluidDomain; onHome?: ()
         <input ref={fileRef} type="file" accept=".ct" multiple hidden onChange={(e) => { const fs = [...(e.target.files || [])]; e.target.value = ""; if (fs[0]) openCt(fs[0]); if (fs.length > 1) tab.openInTabs(fs.slice(1)); }} />
         <input ref={jsonRef} type="file" accept=".json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) openJson(f); e.target.value = ""; }} />
     </Dialog>)} />);
+}
+
+/** one editable property: a number with its unit, a text, or a list of choices; applied on Enter or leaving the field */
+function ParamField({ k, value, lang, hyd, onSet }: { k: string; value: string; lang: Lang; hyd: boolean; onSet: (v: string) => void }) {
+  const p = PARAMS[k], [v, setV] = useState(value), unit = paramUnit(k, hyd), id = "prm-" + k;
+  useEffect(() => setV(value), [value]);
+  const commit = () => { const c = cleanParam(k, v); if (c === null) setV(value); else { setV(c); onSet(c); } };
+  return (<div className="field"><label htmlFor={id} title={p.de}>{paramName(k, lang)}{unit ? ` (${unit})` : ""}</label>
+    {p.choices ? (<select id={id} value={value} onChange={(e) => onSet(e.target.value)}>
+      {!p.choices.some((c) => c[0] === value) && <option value={value}>{value}</option>}
+      {p.choices.map((c) => <option key={c[0]} value={c[0]}>{lang === "he" ? c[2] : lang === "es" ? c[3] : c[1]}</option>)}</select>)
+      : (<input id={id} dir="ltr" type={p.text ? "text" : "number"} min={p.min} max={p.max} step={p.step ?? "any"} value={v}
+        onChange={(e) => setV(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />)}
+  </div>);
 }

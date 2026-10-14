@@ -14,6 +14,7 @@ import type { ReactNode } from "react";
 import type { FluidPart } from "./catalog";
 import { cylOverlay } from "./cylGen";
 import type { CylMark } from "./cylGen";
+import { colorOf } from "./params";
 
 export const STROKE = 330;
 
@@ -205,7 +206,7 @@ function electrical(part: FluidPart, st: EState): ReactNode[] | null {
   if (c === "lampe") {
     const x = a.x, r = 4300, cy = h / 2;
     return [L(x, a.y, x, cy - r, "l1"), L(x, cy + r, x, b.y, "l2"),
-      <circle key="c" cx={x} cy={cy} r={r} fill={st.on ? "#ffd84a" : "none"} />,
+      <circle key="c" cx={x} cy={cy} r={r} fill={st.on ? colorOf(part.props.sig_color) : "none"} />,
       L(x - r * 0.7, cy - r * 0.7, x + r * 0.7, cy + r * 0.7, "x1"), L(x - r * 0.7, cy + r * 0.7, x + r * 0.7, cy - r * 0.7, "x2")];
   }
   if (c === "hupe") {
