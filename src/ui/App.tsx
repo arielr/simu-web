@@ -21,6 +21,9 @@ import { paletteGroups } from "../model/palette";
 
 export const STORE='simu-web-v6';
 export const initLang=readLang;
+/* every drawing that comes in or goes out passes through the browser's storage: it is written there and read back */
+const IO_KEY='simu-web-io';
+export function viaStorage(txt){try{localStorage.setItem(IO_KEY,txt);const r=localStorage.getItem(IO_KEY);localStorage.removeItem(IO_KEY);return r??txt;}catch(e){return txt;}}
 export function loadSaved(key=STORE,blank=false){try{const s=JSON.parse(localStorage.getItem(key));if(s&&Array.isArray(s.comps))return s;}catch(e){}return blank?{name:'',comps:[],wires:[]}:cadExample(initLang());}
 const EXAMPLES=[['cad','exCad',cadExample],['timer','exTimer',timerExample],['p3','ex3',threePhaseExample],['t6','exT6',test6Example],['t7','exT7',test7Example],['all','exAll',catalogExample],['all2','exAll2',catalog2Example],['all3','exAll3',catalog3Example],['all4','exAll4',catalog4Example],['all5','exAll5',catalog5Example]];
 
@@ -272,13 +275,13 @@ function Editor({onHome,tab}){
   const openFiles=async all=>{const imgs=all.filter(isImageFile),docs=all.filter(x=>!isImageFile(x)),f=docs[0];
     if(docs.length>1)tab.openInTabs([...docs.slice(1),...imgs]);
     if(imgs.length)await addImages(imgs);if(!f)return;const r=new FileReader();
-    r.onload=()=>importText(r.result,f.name);r.readAsText(f,'windows-1252');};
+    r.onload=()=>importText(viaStorage(r.result),f.name);r.readAsText(f,'windows-1252');};
   const onFile=e=>{const all=[...e.target.files];e.target.value='';openFiles(all);};
   useEffect(()=>{if(tab.files)openFiles(tab.files);},[]);
-  const copy=async txt=>{try{await navigator.clipboard.writeText(txt);setMsg(t.copied);}catch(e){const ta=document.getElementById('exp');ta&&ta.select();setMsg(t.copyManual);}};
   const saveFile=async()=>{if(!dl){setMsg(t.noSave);return;}
     try{
-      const ok=fmt==='cad'?await dl.saveCad(safeName(name),ioText.text):await dl.saveJson(safeName(name),ioText.text);
+      const txt=viaStorage(ioText.text);
+      const ok=fmt==='cad'?await dl.saveCad(safeName(name),txt):await dl.saveJson(safeName(name),txt);
       if(!ok)return;
       setMsg(t.saved);
     }catch(err){if(err&&err.code==='declined')return;setMsg(t.noSave);}};
@@ -439,11 +442,8 @@ function Editor({onHome,tab}){
         </div>
         <p className="hint" style={{margin:0}}>{fmt==='cad'?(dl&&dl.kind==='browser'?t.ioHintCadDirect:t.ioHintCad):t.ioHintJson}</p>
         {fmt==='cad'&&ioText&&(ioText.skipped>0||ioText.rotated||ioText.shortened>0)&&(<div className="note">{ioText.shortened>0&&(<div>{t.tagCut(ioText.shortened)}</div>)}{ioText.skipped>0&&(<div>{t.skipped(ioText.skipped)}</div>)}{ioText.rotated&&(<div>{t.rotWarn}</div>)}</div>)}
-        <textarea id="exp" key={fmt} defaultValue={ioText?ioText.text:''} spellCheck="false"></textarea>
         <div className="row">
           {dl&&(<button className="go" onClick={saveFile}>{fmt==='cad'&&dl.kind==='artifact'?t.saveZip:t.save}</button>)}
-          <button onClick={()=>copy(document.getElementById('exp').value)}>{t.copy}</button>
-          <button onClick={()=>importText(document.getElementById('exp').value,'')}>{t.loadText}</button>
           <span className="spacer"></span><button onClick={()=>setDlg(null)}>{t.close}</button>
         </div>
         {msg&&(<div className="hint" style={{color:'var(--ink)'}}>{msg}</div>)}
