@@ -275,8 +275,20 @@ function Editor({onHome,tab}){
   const openFiles=async all=>{const imgs=all.filter(isImageFile),docs=all.filter(x=>!isImageFile(x)),f=docs[0];
     if(docs.length>1)tab.openInTabs([...docs.slice(1),...imgs]);
     if(imgs.length)await addImages(imgs);if(!f)return;const r=new FileReader();
-    r.onload=()=>importText(viaStorage(r.result),f.name);r.readAsText(f,'windows-1252');};
+    r.onload=()=>importText(viaStorage(r.result),f.name);r.readAsText(f,/\.json$/i.test(f.name)?'utf-8':'windows-1252');};
   const onFile=e=>{const all=[...e.target.files];e.target.value='';openFiles(all);};
+  /* the drawings kept in this browser's storage (every tab's drawing), listed in the File dialog */
+  const storedDrawings=dlg!=='io'?[]:(()=>{
+    const open=new Set([tab.storeKey]);
+    try{const idx=JSON.parse(localStorage.getItem(STORE+':tabs')||'null');(idx?.tabs||[]).forEach(x=>open.add(x.id==='main'?STORE:STORE+':'+x.id));}catch(e){}
+    const out=[];
+    try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);
+      if((k!==STORE&&!k.startsWith(STORE+':'))||k===STORE+':tabs')continue;
+      try{const raw=localStorage.getItem(k),d=JSON.parse(raw);
+        if(d&&Array.isArray(d.comps)&&Array.isArray(d.wires))out.push({key:k,raw,name:d.name||'',parts:d.comps.length,wires:d.wires.length,open:open.has(k)});}catch(e){}}}catch(e){}
+    return out;})();
+  /* a stored drawing opens in a new tab, read back from the storage text like any opened file */
+  const openStored=s=>{tab.openInTabs([new File([s.raw],(s.name||t.untitled)+'.json',{type:'application/json'})]);setDlg(null);};
   useEffect(()=>{if(tab.files)openFiles(tab.files);},[]);
   const saveFile=async()=>{if(!dl){setMsg(t.noSave);return;}
     try{
@@ -436,6 +448,12 @@ function Editor({onHome,tab}){
     </>}
     overlay={dlg==='io'&&(<Dialog lang={lang} title={t.ioTitle} onClose={()=>setDlg(null)}>
         <div className="row"><label className="hint" htmlFor="file">{t.openFile}</label><input id="file" type="file" accept=".cad,.json,.txt,.bmp,.png,.jpg,.jpeg,.gif,.webp" multiple onChange={onFile} style={{maxWidth:'100%'}}/></div>
+        <div className="stored"><span className="hint">{t.storedTitle}</span>
+          {storedDrawings.length===0?<p className="hint" style={{margin:0}}>{t.storedNone}</p>:(<>
+            <div className="storedlist">{storedDrawings.map(s=>(<button key={s.key} disabled={s.open} onClick={()=>openStored(s)} title={s.key}>
+              <span dir="auto">{s.name||t.untitled}</span><span className="hint">{s.open?t.storedOpen+' · ':''}{t.storedCount(s.parts,s.wires)}</span></button>))}</div>
+            <p className="hint" style={{margin:0}}>{t.storedHint}</p></>)}
+        </div>
         <div className="seg" role="group" style={{justifySelf:'start'}}>
           <button className={fmt==='cad'?'on':''} onClick={()=>setFmt('cad')}>{t.fmtCad}</button>
           <button className={fmt==='json'?'on':''} onClick={()=>setFmt('json')}>{t.fmtJson}</button>
