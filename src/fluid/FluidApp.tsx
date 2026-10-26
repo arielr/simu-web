@@ -22,7 +22,7 @@ import {
   FComp, FluidDoc, FluidDomain, PortRef, Tube, FLUID_KIND, MM, SNAP, PORT_R,
   partOf, portsOf, portPos, rotSize, rotTransform, routeTube, isFluidPart, unrotPt,
 } from "./model";
-import { useLang, useHistory, usePersist, useSaver, useFlash, useKeys, loadPersisted, nid, safeName } from "../shared/hooks";
+import { useLang, useHistory, usePersist, useFlash, useKeys, loadPersisted, nid, safeName } from "../shared/hooks";
 import { DocTabs, type TabProps } from "../shared/tabs";
 import { COMMON } from "../shared/i18n";
 import { EditorFrame, HomeButton, Brand, Seg, ZoomControl, UndoButton, NameField, ExamplesMenu, BarEnd, PartsDrawer, Dialog, StageMessage, Preview, matches } from "../shared/ui";
@@ -101,14 +101,11 @@ function FluidEditor({ domain, onHome, tab }: { domain: FluidDomain; onHome?: ()
   const [cursor, setCursor] = useState<[number, number] | null>(null);
   const [placeRot, setPlaceRot] = useState(0);
   const [zoom, setZoom] = useState(0.75);
-  const [dlg, setDlg] = useState(false);
   const [msg, setMsg] = useFlash(9000);
   const [query, setQuery] = useState("");
-  const saver = useSaver();
   const stageRef = useRef<HTMLDivElement>(null);
   const [fitReq, setFitReq] = useState(1);
   const svgRef = useRef<SVGSVGElement>(null), drag = useRef<Drag>(null);
-  const fileRef = useRef<HTMLInputElement>(null), jsonRef = useRef<HTMLInputElement>(null);
   const [mode, setMode] = useState<"edit" | "sim">("edit");
   const [sim, setSim] = useState<SimState>(emptySim);
   const held = useRef<string | null>(null);
@@ -362,7 +359,7 @@ function FluidEditor({ domain, onHome, tab }: { domain: FluidDomain; onHome?: ()
     setSel(null);
   };
   useKeys((e) => {
-    if (!active || dlg || vdlg || cdlg) return;
+    if (!active || vdlg || cdlg) return;
     if (mode === "sim") { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") e.preventDefault(); return; }
     if (e.key === "Escape") { setDraft(null); setTool("select"); setPlaceRot(0); }
     else if (e.key === "r" || e.key === "R" || e.key === "ר") rotateSel();
@@ -377,18 +374,17 @@ function FluidEditor({ domain, onHome, tab }: { domain: FluidDomain; onHome?: ()
       const extra = Object.values(r.skipped).reduce((a, b) => a + b, 0);
       const wrong = r.program !== "?" && (r.program === "H") !== (domain === "hyd");
       setMsg(t.imported(r.comps.length, r.tubes.length) + (extra ? ` ${t.skipped}: ${extra}.` : "") + (wrong ? " " + t.wrongProgram(r.program) : ""));
-      setDlg(false);
+      
     } catch (err: any) { setMsg(String(err?.message || err)); }
   };
   const openJson = async (f: File) => {
-    try { const d = JSON.parse(await f.text()); if (Array.isArray(d.comps)) { loadDoc2({ name: d.name || f.name, comps: d.comps, tubes: d.tubes || [] }); setDlg(false); } } catch (err: any) { setMsg(String(err?.message || err)); }
+    try { const d = JSON.parse(await f.text()); if (Array.isArray(d.comps)) { loadDoc2({ name: d.name || f.name, comps: d.comps, tubes: d.tubes || [] });  } } catch (err: any) { setMsg(String(err?.message || err)); }
   };
   // files given to a tab made by "open in new tab"
   useEffect(() => { const f = tab.files?.find((x) => /\.(ct|json)$/i.test(x.name)); if (f) (/\.ct$/i.test(f.name) ? openCt : openJson)(f); }, []);
-  const saveJson = async () => {
-    if (!saver) return;
-    await saver.saveJson(safeName(name), JSON.stringify({ app: "simu-web", domain, name, comps: comps.map(({ part, ...c }) => (FLUID_CATALOG[c.key] ? c : { ...c, part })), tubes }, null, 1));
-  };
+  /* what the Open and Save dialogs of this tab work with: the drawing as a .json file */
+  tab.register({ formats: [{ id: "json", label: "SIMU Web (.json)", ext: "json" }],
+    serialize: () => ({ name, text: JSON.stringify({ app: "simu-web", domain, name, comps: comps.map(({ part, ...c }) => (FLUID_CATALOG[c.key] ? c : { ...c, part })), tubes }, null, 1) }) });
 
   // connected ports
   const used = new Set(tubes.flatMap((tb) => [tb.a.c + ":" + tb.a.p, tb.b.c + ":" + tb.b.p]));
@@ -408,7 +404,7 @@ function FluidEditor({ domain, onHome, tab }: { domain: FluidDomain; onHome?: ()
     <BarEnd lang={lang} setLang={setLang}
       examples={<ExamplesMenu lang={lang} items={FLUID_EXAMPLES[domain].map((x) => [x.key, (t as any)[x.key]])}
         onPick={(k) => { const ex = FLUID_EXAMPLES[domain].find((x) => x.key === k); if (ex) { toMode("edit"); loadDoc2(importCt(ex.bytes(), (t as any)[ex.key])); } }} />}
-      onFile={() => setDlg(true)} />
+      onFile={tab.showFiles} />
   </>);
 
   return (<EditorFrame app={domain} lang={lang} bar={bar} tabs={tab.tabs} zoom={<ZoomControl lang={lang} zoom={zoom} setZoom={setZoom} onReset={() => setFitReq((n) => n + 1)} />}
@@ -531,16 +527,7 @@ function FluidEditor({ domain, onHome, tab }: { domain: FluidDomain; onHome?: ()
       <span><b>{comps.length}</b> {t.parts}</span><span><b>{tubes.length}</b> {t.tubes}</span>
       <span className={"chip" + (mode === "sim" ? " sim" : "")}>{mode === "sim" ? "SIM" : "EDIT"}</span>
     </>}
-    overlay={cdlg ? <CylDialog lang={lang} hydraulic={domain === "hyd"} initial={cdlg.init} onApply={applyCyl} onClose={() => setCdlg(null)} /> : vdlg ? (() => { const c = comps.find((k) => k.id === vdlg); return c ? <ValveDialog lang={lang} hydraulic={domain === "hyd"} initial={configOf(partOf(c)!)} onApply={(cfg) => applyValve(c.id, cfg)} onClose={() => setVdlg(null)} /> : null; })() : dlg && (<Dialog lang={lang} title={c0.file} onClose={() => setDlg(false)}>
-        <p className="note">{t.ctNote}</p>
-        <div className="row">
-          <button className="go" onClick={() => fileRef.current?.click()}>{t.openCt}</button>
-          <button onClick={() => jsonRef.current?.click()}>{t.openJson}</button>
-          {saver && <button onClick={saveJson}>{t.saveJson}</button>}
-        </div>
-        <input ref={fileRef} type="file" accept=".ct" multiple hidden onChange={(e) => { const fs = [...(e.target.files || [])]; e.target.value = ""; if (fs[0]) openCt(fs[0]); if (fs.length > 1) tab.openInTabs(fs.slice(1)); }} />
-        <input ref={jsonRef} type="file" accept=".json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) openJson(f); e.target.value = ""; }} />
-    </Dialog>)} />);
+    overlay={cdlg ? <CylDialog lang={lang} hydraulic={domain === "hyd"} initial={cdlg.init} onApply={applyCyl} onClose={() => setCdlg(null)} /> : vdlg ? (() => { const c = comps.find((k) => k.id === vdlg); return c ? <ValveDialog lang={lang} hydraulic={domain === "hyd"} initial={configOf(partOf(c)!)} onApply={(cfg) => applyValve(c.id, cfg)} onClose={() => setVdlg(null)} /> : null; })() : null} />);
 }
 
 /** one editable property: a number with its unit, a text, or a list of choices; applied on Enter or leaving the field */

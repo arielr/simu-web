@@ -81,7 +81,7 @@ export function BarEnd({ lang, setLang, zoom, onNew, examples, onFile }: {
     {zoom}
     {onNew && <button onClick={onNew}>{t.newDoc}</button>}
     {examples}
-    <button className="go" onClick={onFile}>{t.file}</button>
+    <button className="go" onClick={onFile}>{t.open}</button>
     <LangSelect lang={lang} setLang={setLang} />
   </>);
 }

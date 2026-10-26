@@ -3,26 +3,35 @@
  * Every tab is a full editor kept mounted (its undo history, zoom and simulation stay as they were);
  * only the visible one listens to the keyboard and the clipboard. Each tab's drawing is saved in this
  * browser under its own key; the first tab keeps the key the program always used.
+ * Each tab has a menu (⋮) to save it or close it; Open and Save use the shared file dialog.
  */
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { COMMON, Lang } from "./i18n";
 import { nid } from "./hooks";
+import { FileDialog, saveToComputer, type SaveSource } from "./fileDialog";
+import { Dialog } from "./ui";
 
 export interface DocTab { id: string; name: string }
 /** what an editor gets from the tab strip */
 export interface TabProps {
   /** localStorage key of this tab's drawing */
   storeKey: string;
+  /** the program's base key (the tabs of one program share it) */
+  store: string;
   /** this tab is the visible one */
   active: boolean;
   /** a new tab starts empty instead of with the sample drawing */
   blank: boolean;
-  /** files to open in a tab created by "open in new tab" */
+  /** files to open in a tab created by the Open dialog */
   files: File[] | null;
   /** the editor reports its drawing name, shown on the tab */
   onName: (name: string) => void;
   /** open these files in new tabs (one per drawing) */
   openInTabs: (files: File[]) => void;
+  /** the editor says what this tab can save and how (its drawing as text, in each format) */
+  register: (src: SaveSource) => void;
+  /** shows the Open dialog */
+  showFiles: () => void;
   /** the strip itself, placed by the editor under its top bar */
   tabs: ReactNode;
 }
@@ -39,15 +48,27 @@ function readTabs(store: string): { tabs: DocTab[]; active: string } {
   return { tabs: [{ id: MAIN, name: "" }], active: MAIN };
 }
 
+type DlgState = { mode: "open" } | { mode: "save"; tabId: string } | null;
+
 export function DocTabs({ store, lang, untitled, render }: {
   store: string; lang: Lang; untitled: string;
   render: (tab: DocTab, p: TabProps) => ReactNode;
 }) {
   const [st, setSt] = useState(() => readTabs(store));
   const fresh = useRef<Record<string, { blank: boolean; files: File[] | null }>>({});
-  const fileRef = useRef<HTMLInputElement>(null);
+  const sources = useRef<Record<string, SaveSource>>({});
+  const [dlg, setDlg] = useState<DlgState>(null);
+  const [closing, setClosing] = useState<string | null>(null);
+  const [menu, setMenu] = useState<string | null>(null);
   const t = COMMON[lang];
   useEffect(() => { try { localStorage.setItem(store + ":tabs", JSON.stringify(st)); } catch { /* storage full or blocked */ } }, [store, st]);
+  // a tab menu closes on any click outside it
+  useEffect(() => {
+    if (!menu) return;
+    const h = () => setMenu(null);
+    window.addEventListener("click", h);
+    return () => window.removeEventListener("click", h);
+  }, [menu]);
 
   /** a new empty tab, or one tab per drawing file; pictures among the files go with every drawing */
   const add = (files: File[] | null = null) => {
@@ -67,8 +88,18 @@ export function DocTabs({ store, lang, untitled, render }: {
     window.addEventListener("dragover", over); window.addEventListener("drop", drop);
     return () => { window.removeEventListener("dragover", over); window.removeEventListener("drop", drop); };
   }, []);
-  const close = (id: string) => {
-    if (!confirm(t.closeTab)) return;
+
+  /** closing asks first: save the drawing (to this computer) and close, close without saving, or keep it open */
+  const close = (id: string) => setClosing(id);
+  const closeWith = async (id: string, save: boolean) => {
+    if (save) {
+      const src = sources.current[id];
+      let ok = false;
+      try { ok = !!src && (await saveToComputer(src, src.formats[0])); } catch { ok = false; }
+      if (!ok) return;
+    }
+    setClosing(null);
+    delete sources.current[id];
     try { localStorage.removeItem(keyOf(store, id)); } catch { /* ignore */ }
     setSt((s) => {
       const i = s.tabs.findIndex((x) => x.id === id), tabs = s.tabs.filter((x) => x.id !== id);
@@ -84,18 +115,38 @@ export function DocTabs({ store, lang, untitled, render }: {
         <div key={tab.id} role="tab" aria-selected={tab.id === st.active} className={"doctab" + (tab.id === st.active ? " on" : "")}
           onClick={() => setSt((s) => ({ ...s, active: tab.id }))} onAuxClick={(e) => { if (e.button === 1) close(tab.id); }} title={tab.name || untitled}>
           <span className="dt-name" dir="auto">{tab.name || untitled}</span>
+          <button className="dt-more" aria-label={t.moreMenu} title={t.moreMenu} aria-haspopup="menu" aria-expanded={menu === tab.id}
+            onClick={(e) => { e.stopPropagation(); setMenu(menu === tab.id ? null : tab.id); }}>⋮</button>
+          {menu === tab.id && (<div className="dt-menu" role="menu" onClick={(e) => e.stopPropagation()}>
+            <button role="menuitem" onClick={() => { setMenu(null); setDlg({ mode: "save", tabId: tab.id }); }}>{t.menuSave}</button>
+            <button role="menuitem" onClick={() => { setMenu(null); close(tab.id); }}>{t.menuClose}</button>
+          </div>)}
           <button className="dt-x" aria-label={t.closeTabBtn} title={t.closeTabBtn} onClick={(e) => { e.stopPropagation(); close(tab.id); }}>×</button>
         </div>))}
       <button className="dt-add" onClick={() => add()} title={t.newTab} aria-label={t.newTab}>+</button>
-      <button className="dt-add" onClick={() => fileRef.current?.click()} title={t.openInTab}>{t.openInTab}</button>
-      <input ref={fileRef} type="file" multiple style={{ display: "none" }}
-        onChange={(e) => { const fs = [...(e.target.files || [])]; e.target.value = ""; if (fs.length) add(fs); }} />
     </div>);
 
-  return (<>{st.tabs.map((tab) => {
+  const closingName = st.tabs.find((x) => x.id === closing)?.name || untitled;
+  return (<>{closing && (<Dialog lang={lang} title={t.closeTabTitle} onClose={() => setClosing(null)}>
+    <p>{t.closeTabAsk(closingName)}</p>
+    <div className="row">
+      <button className="go" onClick={() => closeWith(closing, true)}>{t.saveAndClose}</button>
+      <button onClick={() => closeWith(closing, false)}>{t.closeWithout}</button>
+      <span className="spacer"></span><button onClick={() => setClosing(null)}>{t.keepOpen}</button>
+    </div>
+  </Dialog>)}
+  {dlg && (<FileDialog lang={lang} store={store} untitled={untitled} onOpen={(fs) => add(fs)} onClose={() => setDlg(null)}
+    dialog={dlg.mode === "open" ? { mode: "open" } : { mode: "save", source: sources.current[dlg.tabId] || null }} />)}
+  {st.tabs.map((tab) => {
     const on = tab.id === st.active, f = fresh.current[tab.id];
     return (<div key={tab.id} className="doctab-pane" style={on ? undefined : { display: "none" }}>
-      {render(tab, { storeKey: keyOf(store, tab.id), active: on, blank: !!f?.blank, files: f?.files || null, onName: (n) => setName(tab.id, n), openInTabs: add, tabs: on ? strip : null })}
+      {render(tab, {
+        storeKey: keyOf(store, tab.id), store, active: on, blank: !!f?.blank, files: f?.files || null,
+        onName: (n) => setName(tab.id, n), openInTabs: add,
+        register: (src) => { sources.current[tab.id] = src; },
+        showFiles: () => setDlg({ mode: "open" }),
+        tabs: on ? strip : null,
+      })}
     </div>);
   })}</>);
 }

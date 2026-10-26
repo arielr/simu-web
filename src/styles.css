@@ -245,3 +245,16 @@ a.card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .storedlist { display: grid; gap: 6px; max-height: 240px; overflow: auto; }
 .storedlist button { display: grid; text-align: start; justify-items: start; gap: 2px; width: 100%; }
 .storedlist button:disabled { opacity: .55; cursor: default; }
+
+/* tab menu (⋮) */
+.doctab { position: relative; }
+.dt-more { border: 0; background: none; color: inherit; font: inherit; padding: 0 4px; cursor: pointer; opacity: .75; }
+.dt-more:hover { opacity: 1; }
+.dt-menu { position: absolute; top: 100%; inset-inline-start: 0; z-index: 30; display: grid; min-width: 180px; padding: 4px;
+  background: var(--panel, #fff); border: 1px solid var(--line, #bbb); border-radius: 8px; box-shadow: 0 6px 18px rgba(0,0,0,.18); }
+.dt-menu button { text-align: start; border: 0; background: none; padding: 8px 10px; border-radius: 6px; cursor: pointer; font: inherit; color: inherit; }
+.dt-menu button:hover { background: rgba(127,127,127,.15); }
+
+/* Open and Save dialogs */
+.fileopen { display: grid; gap: 14px; }
+.fileopen h3 { margin: 0 0 6px; font-size: 14px; }

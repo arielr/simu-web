@@ -257,7 +257,6 @@ function Editor({onHome,tab}){
     const segs2=segs;
     return {...writeCad({comps,wires:segs2,dots,order:cadMeta.order,footer:cadMeta.footer,netOf,pinsOf}),rotated:false};
   };
-  const ioText=useMemo(()=>dlg!=='io'?null:fmt==='cad'?exportCad():{text:exportJSON()},[dlg,fmt,comps,wires,name,cadMeta]);
   const loadDrawing=(d,m)=>{snap();toMode('edit');setComps(d.comps);setWires(d.wires.map(w=>({kind:'ph',...w})));setName(d.name||'');
     setCadMeta({order:d.cadOrder||null,footer:d.cadFooter||null});setDlg(null);setSel(null);setMsg(m);
     if(stageRef.current){stageRef.current.scrollLeft=0;stageRef.current.scrollTop=0;}};
@@ -276,27 +275,11 @@ function Editor({onHome,tab}){
     if(docs.length>1)tab.openInTabs([...docs.slice(1),...imgs]);
     if(imgs.length)await addImages(imgs);if(!f)return;const r=new FileReader();
     r.onload=()=>importText(viaStorage(r.result),f.name);r.readAsText(f,/\.json$/i.test(f.name)?'utf-8':'windows-1252');};
-  const onFile=e=>{const all=[...e.target.files];e.target.value='';openFiles(all);};
-  /* the drawings kept in this browser's storage (every tab's drawing), listed in the File dialog */
-  const storedDrawings=dlg!=='io'?[]:(()=>{
-    const open=new Set([tab.storeKey]);
-    try{const idx=JSON.parse(localStorage.getItem(STORE+':tabs')||'null');(idx?.tabs||[]).forEach(x=>open.add(x.id==='main'?STORE:STORE+':'+x.id));}catch(e){}
-    const out=[];
-    try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);
-      if((k!==STORE&&!k.startsWith(STORE+':'))||k===STORE+':tabs')continue;
-      try{const raw=localStorage.getItem(k),d=JSON.parse(raw);
-        if(d&&Array.isArray(d.comps)&&Array.isArray(d.wires))out.push({key:k,raw,name:d.name||'',parts:d.comps.length,wires:d.wires.length,open:open.has(k)});}catch(e){}}}catch(e){}
-    return out;})();
-  /* a stored drawing opens in a new tab, read back from the storage text like any opened file */
-  const openStored=s=>{tab.openInTabs([new File([s.raw],(s.name||t.untitled)+'.json',{type:'application/json'})]);setDlg(null);};
-  useEffect(()=>{if(tab.files)openFiles(tab.files);},[]);
-  const saveFile=async()=>{if(!dl){setMsg(t.noSave);return;}
-    try{
-      const txt=viaStorage(ioText.text);
-      const ok=fmt==='cad'?await dl.saveCad(safeName(name),txt):await dl.saveJson(safeName(name),txt);
-      if(!ok)return;
-      setMsg(t.saved);
-    }catch(err){if(err&&err.code==='declined')return;setMsg(t.noSave);}};
+  /* what the Open and Save dialogs of this tab work with: the drawing as text, in each format */
+  tab.register({formats:[{id:'cad',label:t.fmtCad,ext:'cad'},{id:'json',label:t.fmtJson,ext:'json'}],
+    serialize:f=>{if(f!=='cad')return {name:name||t.untitled,text:exportJSON()};
+      const r=exportCad(),notes=[];if(r.shortened>0)notes.push(t.tagCut(r.shortened));if(r.skipped>0)notes.push(t.skipped(r.skipped));if(r.rotated)notes.push(t.rotWarn);
+      return {name:name||t.untitled,text:r.text,notes};}});
 
   const labelPos=c=>{const d=DEFS[c.type];if(d.kind==='src'&&c.type!=='supply')return null;
     const [dx,dy]=d.lab||[17,34];if(c.type==='raw')return [c.x*G+18,c.y*G+56];if(c.type==='interlock')return null;
@@ -315,7 +298,7 @@ function Editor({onHome,tab}){
       <NameField lang={lang} value={name} onChange={setName}/>
       <BarEnd lang={lang} setLang={setLang}
         examples={<ExamplesMenu lang={lang} items={EXAMPLES.map(([k,l])=>[k,t[l]])} onPick={k=>{const ex=EXAMPLES.find(x=>x[0]===k);if(ex)loadDrawing(ex[2](lang),'');}}/>}
-        onFile={()=>setDlg('io')}/>
+        onFile={tab.showFiles}/>
     </>);
 
   return (<EditorFrame app="elec" lang={lang} bar={bar} tabs={tab.tabs} zoom={<ZoomControl lang={lang} zoom={zoom} setZoom={setZoom} min={.5} max={2.5} onReset={()=>setZoom(1)}/>}
@@ -446,24 +429,5 @@ function Editor({onHome,tab}){
       {msg&&(<span style={{color:'var(--ink)'}}>{msg}</span>)}
       <span className="spacer"></span><span>{t.autosave}</span>
     </>}
-    overlay={dlg==='io'&&(<Dialog lang={lang} title={t.ioTitle} onClose={()=>setDlg(null)}>
-        <div className="row"><label className="hint" htmlFor="file">{t.openFile}</label><input id="file" type="file" accept=".cad,.json,.txt,.bmp,.png,.jpg,.jpeg,.gif,.webp" multiple onChange={onFile} style={{maxWidth:'100%'}}/></div>
-        <div className="stored"><span className="hint">{t.storedTitle}</span>
-          {storedDrawings.length===0?<p className="hint" style={{margin:0}}>{t.storedNone}</p>:(<>
-            <div className="storedlist">{storedDrawings.map(s=>(<button key={s.key} disabled={s.open} onClick={()=>openStored(s)} title={s.key}>
-              <span dir="auto">{s.name||t.untitled}</span><span className="hint">{s.open?t.storedOpen+' · ':''}{t.storedCount(s.parts,s.wires)}</span></button>))}</div>
-            <p className="hint" style={{margin:0}}>{t.storedHint}</p></>)}
-        </div>
-        <div className="seg" role="group" style={{justifySelf:'start'}}>
-          <button className={fmt==='cad'?'on':''} onClick={()=>setFmt('cad')}>{t.fmtCad}</button>
-          <button className={fmt==='json'?'on':''} onClick={()=>setFmt('json')}>{t.fmtJson}</button>
-        </div>
-        <p className="hint" style={{margin:0}}>{fmt==='cad'?(dl&&dl.kind==='browser'?t.ioHintCadDirect:t.ioHintCad):t.ioHintJson}</p>
-        {fmt==='cad'&&ioText&&(ioText.skipped>0||ioText.rotated||ioText.shortened>0)&&(<div className="note">{ioText.shortened>0&&(<div>{t.tagCut(ioText.shortened)}</div>)}{ioText.skipped>0&&(<div>{t.skipped(ioText.skipped)}</div>)}{ioText.rotated&&(<div>{t.rotWarn}</div>)}</div>)}
-        <div className="row">
-          {dl&&(<button className="go" onClick={saveFile}>{fmt==='cad'&&dl.kind==='artifact'?t.saveZip:t.save}</button>)}
-          <span className="spacer"></span><button onClick={()=>setDlg(null)}>{t.close}</button>
-        </div>
-        {msg&&(<div className="hint" style={{color:'var(--ink)'}}>{msg}</div>)}
-      </Dialog>)}/>);
+    overlay={null}/>);
 }

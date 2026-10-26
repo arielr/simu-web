@@ -118,6 +118,23 @@ automatically without a browser; the UI layer only draws the state.
 | `src/examples/files/` | Sample and test `.cad` files made in CADe SIMU. |
 | `tests/` | Vitest suites. |
 
+## Opening and saving drawings
+
+The **Open** button (every program) lists where a drawing can come from: this computer (files),
+this browser (the drawings kept in its storage, and copies saved "in this browser"), or Google Drive.
+The **⋮** menu of a tab saves that drawing (to this computer, in this browser or to Google Drive) or
+closes the tab; closing asks first. Drawings are written to and read from the browser's storage on
+the way in and out.
+
+Google Drive needs an OAuth client for the site (the app asks only for the `drive.file` scope, so it
+sees only the files it saved):
+
+1. In Google Cloud Console, enable the **Google Drive API** and create an **OAuth client ID** of type *Web application*.
+2. Add `https://arielr.github.io` (and `http://localhost:5173` for development) to *Authorized JavaScript origins*.
+3. Put the client ID in the repository variable `GOOGLE_CLIENT_ID` (Settings → Secrets and variables → Actions → Variables); the Pages build reads it as `VITE_GOOGLE_CLIENT_ID`. For local development, put `VITE_GOOGLE_CLIENT_ID=...` in a `.env.local` file.
+
+Without a client ID the Drive options stay disabled and say so.
+
 ## Tabs: several drawings at once
 
 Each program has a row of tabs under its top bar (`src/shared/tabs.tsx`): **+** opens an empty
