@@ -275,6 +275,8 @@ function Editor({onHome,tab}){
     if(docs.length>1)tab.openInTabs([...docs.slice(1),...imgs]);
     if(imgs.length)await addImages(imgs);if(!f)return;const r=new FileReader();
     r.onload=()=>importText(viaStorage(r.result),f.name);r.readAsText(f,/\.json$/i.test(f.name)?'utf-8':'windows-1252');};
+  // a tab made from files (Open) reads them on mount
+  useEffect(()=>{if(tab.files)openFiles(tab.files);},[]);
   /* what the Open and Save dialogs of this tab work with: the drawing as text, in each format */
   tab.register({formats:[{id:'cad',label:t.fmtCad,ext:'cad'},{id:'json',label:t.fmtJson,ext:'json'}],
     serialize:f=>{if(f!=='cad')return {name:name||t.untitled,text:exportJSON()};
