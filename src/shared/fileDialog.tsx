@@ -18,7 +18,8 @@ export interface SaveSource {
   formats: SaveFormat[];
   serialize: (fmt: string) => { name: string; text: string; notes?: string[] };
 }
-export type FileMode = { mode: "open" } | { mode: "save"; source: SaveSource | null };
+/** onDone runs after a successful save (default: close the dialog) */
+export type FileMode = { mode: "open" } | { mode: "save"; source: SaveSource | null; onDone?: () => void };
 
 const LIB = "#lib:";
 const MIME: Record<string, string> = { cad: "application/octet-stream", json: "application/json" };
@@ -91,7 +92,7 @@ export function FileDialog({ lang, store, untitled, dialog, onOpen, onClose }: {
   return (<Dialog lang={lang} title={dialog.mode === "open" ? t.open : t.saveDlg} onClose={onClose}>
     {dialog.mode === "open"
       ? <OpenPanel lang={lang} store={store} untitled={untitled} onOpen={(fs) => { onOpen(fs); onClose(); }} />
-      : <SavePanel lang={lang} store={store} source={dialog.source} onClose={onClose} />}
+      : <SavePanel lang={lang} store={store} source={dialog.source} onDone={dialog.onDone || onClose} />}
   </Dialog>);
 }
 
@@ -137,7 +138,7 @@ function OpenPanel({ lang, store, untitled, onOpen }: { lang: Lang; store: strin
   </div>);
 }
 
-function SavePanel({ lang, store, source, onClose }: { lang: Lang; store: string; source: SaveSource | null; onClose: () => void }) {
+function SavePanel({ lang, store, source, onDone }: { lang: Lang; store: string; source: SaveSource | null; onDone: () => void }) {
   const t = COMMON[lang];
   const [fmtId, setFmtId] = useState(source?.formats[0]?.id || "");
   const [msg, setMsg] = useState("");
@@ -151,7 +152,7 @@ function SavePanel({ lang, store, source, onClose }: { lang: Lang; store: string
       const ok = where === "computer" ? await saveToComputer(source, fmt)
         : where === "browser" ? saveToBrowser(store, source, fmt)
         : (await saveToDrive(source, fmt), true);
-      if (ok) { onClose(); return; }
+      if (ok) { onDone(); return; }
       setMsg(t.saveFail);
     } catch { setMsg(t.saveFail); } finally { setBusy(false); }
   };
@@ -160,7 +161,7 @@ function SavePanel({ lang, store, source, onClose }: { lang: Lang; store: string
       {source.formats.map((f) => <button key={f.id} className={f.id === fmt.id ? "on" : ""} onClick={() => setFmtId(f.id)}>{f.label}</button>)}</div>)}
     {notes.map((n) => <div key={n} className="note">{n}</div>)}
     <div className="row">
-      <button className="go" disabled={busy} onClick={() => go("computer")}>{t.toComputer}</button>
+      <button disabled={busy} onClick={() => go("computer")}>{t.toComputer}</button>
       <button disabled={busy} onClick={() => go("browser")}>{t.toBrowser}</button>
       <button disabled={busy || !driveConfigured()} title={driveConfigured() ? "" : t.driveOff} onClick={() => go("drive")}>{t.toDrive}</button>
     </div>

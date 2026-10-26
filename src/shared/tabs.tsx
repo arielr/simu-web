@@ -48,7 +48,9 @@ function readTabs(store: string): { tabs: DocTab[]; active: string } {
   return { tabs: [{ id: MAIN, name: "" }], active: MAIN };
 }
 
-type DlgState = { mode: "open" } | { mode: "save"; tabId: string } | null;
+/** closeAfter: the tab closes once it is saved (from the close prompt) */
+type DlgState = { mode: "open" } | { mode: "save"; tabId: string; closeAfter?: boolean } | null;
+type MenuState = { id: string; x: number; y: number } | null;
 
 export function DocTabs({ store, lang, untitled, render }: {
   store: string; lang: Lang; untitled: string;
@@ -59,7 +61,7 @@ export function DocTabs({ store, lang, untitled, render }: {
   const sources = useRef<Record<string, SaveSource>>({});
   const [dlg, setDlg] = useState<DlgState>(null);
   const [closing, setClosing] = useState<string | null>(null);
-  const [menu, setMenu] = useState<string | null>(null);
+  const [menu, setMenu] = useState<MenuState>(null);
   const t = COMMON[lang];
   useEffect(() => { try { localStorage.setItem(store + ":tabs", JSON.stringify(st)); } catch { /* storage full or blocked */ } }, [store, st]);
   // a tab menu closes on any click outside it
@@ -91,13 +93,11 @@ export function DocTabs({ store, lang, untitled, render }: {
 
   /** closing asks first: save the drawing (to this computer) and close, close without saving, or keep it open */
   const close = (id: string) => setClosing(id);
-  const closeWith = async (id: string, save: boolean) => {
-    if (save) {
-      const src = sources.current[id];
-      let ok = false;
-      try { ok = !!src && (await saveToComputer(src, src.formats[0])); } catch { ok = false; }
-      if (!ok) return;
-    }
+  const closeWith = (id: string, save: boolean) => {
+    if (save) { setClosing(null); setDlg({ mode: "save", tabId: id, closeAfter: true }); return; }
+    removeTab(id);
+  };
+  const removeTab = (id: string) => {
     setClosing(null);
     delete sources.current[id];
     try { localStorage.removeItem(keyOf(store, id)); } catch { /* ignore */ }
@@ -115,15 +115,15 @@ export function DocTabs({ store, lang, untitled, render }: {
         <div key={tab.id} role="tab" aria-selected={tab.id === st.active} className={"doctab" + (tab.id === st.active ? " on" : "")}
           onClick={() => setSt((s) => ({ ...s, active: tab.id }))} onAuxClick={(e) => { if (e.button === 1) close(tab.id); }} title={tab.name || untitled}>
           <span className="dt-name" dir="auto">{tab.name || untitled}</span>
-          <button className="dt-more" aria-label={t.moreMenu} title={t.moreMenu} aria-haspopup="menu" aria-expanded={menu === tab.id}
-            onClick={(e) => { e.stopPropagation(); setMenu(menu === tab.id ? null : tab.id); }}>⋮</button>
-          {menu === tab.id && (<div className="dt-menu" role="menu" onClick={(e) => e.stopPropagation()}>
-            <button role="menuitem" onClick={() => { setMenu(null); setDlg({ mode: "save", tabId: tab.id }); }}>{t.menuSave}</button>
-            <button role="menuitem" onClick={() => { setMenu(null); close(tab.id); }}>{t.menuClose}</button>
-          </div>)}
+          <button className="dt-more" aria-label={t.moreMenu} title={t.moreMenu} aria-haspopup="menu" aria-expanded={menu?.id === tab.id}
+            onClick={(e) => { e.stopPropagation(); const r = e.currentTarget.getBoundingClientRect(); setMenu(menu?.id === tab.id ? null : { id: tab.id, x: r.left, y: r.bottom }); }}>⋮</button>
           <button className="dt-x" aria-label={t.closeTabBtn} title={t.closeTabBtn} onClick={(e) => { e.stopPropagation(); close(tab.id); }}>×</button>
         </div>))}
       <button className="dt-add" onClick={() => add()} title={t.newTab} aria-label={t.newTab}>+</button>
+      {menu && (<div className="dt-menu" role="menu" style={{ left: menu.x, top: menu.y }} onClick={(e) => e.stopPropagation()}>
+        <button role="menuitem" onClick={() => { setMenu(null); setDlg({ mode: "save", tabId: menu.id }); }}>{t.menuSave}</button>
+        <button role="menuitem" onClick={() => { const id = menu.id; setMenu(null); close(id); }}>{t.menuClose}</button>
+      </div>)}
     </div>);
 
   const closingName = st.tabs.find((x) => x.id === closing)?.name || untitled;
@@ -136,7 +136,8 @@ export function DocTabs({ store, lang, untitled, render }: {
     </div>
   </Dialog>)}
   {dlg && (<FileDialog lang={lang} store={store} untitled={untitled} onOpen={(fs) => add(fs)} onClose={() => setDlg(null)}
-    dialog={dlg.mode === "open" ? { mode: "open" } : { mode: "save", source: sources.current[dlg.tabId] || null }} />)}
+    dialog={dlg.mode === "open" ? { mode: "open" } : { mode: "save", source: sources.current[dlg.tabId] || null,
+      onDone: dlg.closeAfter ? () => { setDlg(null); removeTab(dlg.tabId); } : undefined }} />)}
   {st.tabs.map((tab) => {
     const on = tab.id === st.active, f = fresh.current[tab.id];
     return (<div key={tab.id} className="doctab-pane" style={on ? undefined : { display: "none" }}>
